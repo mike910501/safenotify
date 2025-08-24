@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { API_URL } from '@/lib/config'
 import { 
   Send, FileText, Clock, Shield, ArrowRight, Upload, 
   Trash2, CheckCircle, AlertCircle, Bot, TrendingUp,
@@ -96,7 +97,7 @@ export default function DashboardPage() {
       
       if (!token) return
 
-      const response = await fetch('http://localhost:3005/api/auth/me', {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },

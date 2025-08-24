@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   Plus, MessageSquare, Edit3, Trash2, Eye, 
   CheckCircle, XCircle, Clock, AlertTriangle,
@@ -56,7 +57,7 @@ export default function TemplatesPage() {
   const fetchTemplates = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/templates-ai', {
+      const response = await fetch(`${API_URL}/api/templates-ai`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -77,7 +78,7 @@ export default function TemplatesPage() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/templates-ai/stats/user', {
+      const response = await fetch(`${API_URL}/api/templates-ai/stats/user`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -98,7 +99,7 @@ export default function TemplatesPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3005/api/templates-ai/${templateId}`, {
+      const response = await fetch(`${API_URL}/api/templates-ai/${templateId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

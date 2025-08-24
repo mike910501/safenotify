@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   CreditCard, Smartphone, Building2, Shield, 
   ArrowLeft, Check, Lock, AlertTriangle, Info,
@@ -91,7 +92,7 @@ function CheckoutContent() {
   const fetchPlan = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/payments/plans', {
+      const response = await fetch(`${API_URL}/api/payments/plans`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -118,7 +119,7 @@ function CheckoutContent() {
   const fetchAcceptanceToken = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/payments/wompi/acceptance-token', {
+      const response = await fetch(`${API_URL}/api/payments/wompi/acceptance-token`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -175,7 +176,7 @@ function CheckoutContent() {
         customerData: customerData
       }
 
-      const response = await fetch('http://localhost:3005/api/payments/create-transaction', {
+      const response = await fetch(`${API_URL}/api/payments/create-transaction`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

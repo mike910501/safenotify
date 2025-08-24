@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { API_URL } from '@/lib/config'
 import { 
   User, Lock, Mail, Shield, 
   Eye, EyeOff, Save, CheckCircle,
@@ -59,7 +60,7 @@ export default function SettingsPage() {
       }
 
       // Llamada real a la API para obtener datos del usuario
-      const response = await fetch('http://localhost:3005/api/auth/me', {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -99,7 +100,7 @@ export default function SettingsPage() {
       }
 
       // Llamada real a la API para actualizar perfil
-      const response = await fetch('http://localhost:3005/api/auth/profile', {
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -153,7 +154,7 @@ export default function SettingsPage() {
       }
 
       // Llamada real a la API para cambiar contraseña
-      const response = await fetch('http://localhost:3005/api/auth/profile', {
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -196,7 +197,7 @@ export default function SettingsPage() {
         throw new Error('No authentication token found')
       }
 
-      const response = await fetch('http://localhost:3005/api/user/export-data', {
+      const response = await fetch(`${API_URL}/api/user/export-data`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -270,7 +271,7 @@ export default function SettingsPage() {
         throw new Error('No authentication token found')
       }
 
-      const response = await fetch('http://localhost:3005/api/user/delete-account', {
+      const response = await fetch(`${API_URL}/api/user/delete-account`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

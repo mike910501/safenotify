@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   User, Mail, Calendar, Shield, Edit3, Save, X, 
   Key, Trash2, AlertTriangle, CheckCircle, Eye, EyeOff
@@ -65,7 +66,7 @@ export default function ProfilePage() {
         return
       }
 
-      const response = await fetch('http://localhost:3005/api/auth/me', {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -119,7 +120,7 @@ export default function ProfilePage() {
         updateData.newPassword = formData.newPassword
       }
 
-      const response = await fetch('http://localhost:3005/api/auth/profile', {
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

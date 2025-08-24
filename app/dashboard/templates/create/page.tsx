@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   ArrowLeft, Sparkles, CheckCircle, XCircle, AlertTriangle,
   FileSpreadsheet, Lightbulb, MessageSquare, Save, Eye,
@@ -74,7 +75,7 @@ export default function CreateTemplatePage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/templates-ai/validate', {
+      const response = await fetch(`${API_URL}/api/templates-ai/validate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -114,7 +115,7 @@ export default function CreateTemplatePage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/templates-ai/create', {
+      const response = await fetch(`${API_URL}/api/templates-ai/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

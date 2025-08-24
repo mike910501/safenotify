@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   Users, MessageSquare, CheckCircle, XCircle, Clock, 
   AlertTriangle, FileText, Eye, Bot, Settings,
@@ -89,7 +90,7 @@ export default function AdminPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter)
       if (searchTerm.trim()) params.append('search', searchTerm.trim())
       
-      const url = `http://localhost:3005/api/admin/templates${params.toString() ? '?' + params.toString() : ''}`
+      const url = `${API_URL}/api/admin/templates${params.toString() ? '?' + params.toString() : ''}`
       
       const response = await fetch(url, {
         headers: {
@@ -113,7 +114,7 @@ export default function AdminPage() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/admin/templates/stats', {
+      const response = await fetch(`${API_URL}/api/admin/templates/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -136,7 +137,7 @@ export default function AdminPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3005/api/admin/templates/${templateId}/approve`, {
+      const response = await fetch(`${API_URL}/api/admin/templates/${templateId}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -172,7 +173,7 @@ export default function AdminPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3005/api/admin/templates/${templateId}/reject`, {
+      const response = await fetch(`${API_URL}/api/admin/templates/${templateId}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -208,7 +209,7 @@ export default function AdminPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3005/api/admin/templates/${templateId}/activate`, {
+      const response = await fetch(`${API_URL}/api/admin/templates/${templateId}/activate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

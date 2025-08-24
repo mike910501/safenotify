@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   Send, FileText, Users, Clock, MessageSquare, 
   ChevronRight, Shield, Zap, CheckCircle
@@ -111,7 +112,7 @@ export default function SendMessagesPage() {
     try {
       console.log('🚀 Starting message sending process...')
       
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
+      const BACKEND_URL = API_URL
       console.log('📡 Backend URL:', BACKEND_URL)
       
       // Create campaign

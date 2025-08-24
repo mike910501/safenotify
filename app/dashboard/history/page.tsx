@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { API_URL } from '@/lib/config'
 import { 
   Calendar, MessageSquare, Clock, TrendingUp, 
   BarChart3, PieChart, Download, Filter, Search,
@@ -62,7 +63,7 @@ export default function HistoryPage() {
       }
 
       // Llamada real a la API de campañas
-      const response = await fetch('http://localhost:3005/api/campaigns', {
+      const response = await fetch(`${API_URL}/api/campaigns`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   Check, Zap, Crown, Rocket, CreditCard, 
   Shield, MessageSquare, Clock, ArrowRight,
@@ -48,7 +49,7 @@ export default function UpgradePage() {
   const fetchPlans = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/payments/plans', {
+      const response = await fetch(`${API_URL}/api/payments/plans`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -129,7 +130,7 @@ export default function UpgradePage() {
   const fetchWompiConfig = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3005/api/payments/wompi/config', {
+      const response = await fetch(`${API_URL}/api/payments/wompi/config`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

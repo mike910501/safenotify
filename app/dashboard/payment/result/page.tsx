@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   CheckCircle, XCircle, Clock, AlertTriangle, 
   ArrowRight, RefreshCw, CreditCard
@@ -67,7 +68,7 @@ function PaymentResultContent() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3005/api/payments/transaction-status/${reference}`, {
+      const response = await fetch(`${API_URL}/api/payments/transaction-status/${reference}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
