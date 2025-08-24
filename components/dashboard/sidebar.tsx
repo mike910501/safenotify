@@ -23,9 +23,8 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
   const baseNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Enviar Mensajes', href: '/dashboard/send', icon: Send },
-    { name: 'Plantillas', href: '/dashboard/templates', icon: FileText },
+    { name: 'Template Studio', href: '/dashboard/templates', icon: FileText, isTemplateStudio: true },
     { name: 'Historial', href: '/dashboard/history', icon: Clock },
-    { name: 'Asistente IA', href: '/dashboard/ai-assistant', icon: Bot },
     { name: 'Planes y Precios', href: '/dashboard/upgrade', icon: CreditCard },
     { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
     { name: 'Ayuda', href: '/dashboard/help', icon: HelpCircle },
@@ -83,6 +82,7 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
         {navigation.map((item) => {
           const isUpgradeLink = item.href === '/dashboard/upgrade'
           const isAdminLink = item.href === '/admin'
+          const isTemplateStudio = (item as any).isTemplateStudio
           
           return (
             <Link
@@ -105,13 +105,20 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                   isActive(item.href) ? 'text-white' : 
                   isAdminLink ? 'text-red-600 group-hover:text-white' :
                   isUpgradeLink ? 'text-purple-600 group-hover:text-white' :
+                  isTemplateStudio ? 'text-purple-500 group-hover:text-white' :
                   'text-gray-400 group-hover:text-white'
                 } transition-colors duration-200 flex-shrink-0`}
                 animation={isActive(item.href) ? 'pulse' : undefined}
               />
               {!isCollapsed && (
                 <span className="ml-3 animate-fade-in">
-                  {item.name}
+                  {isTemplateStudio ? (
+                    <span className="bg-gradient-to-r from-purple-500 via-pink-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
+                      {item.name}
+                    </span>
+                  ) : (
+                    item.name
+                  )}
                   {isUpgradeLink && (
                     <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full group-hover:bg-white group-hover:text-purple-700">
                       💎

@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   Check, Zap, Crown, Rocket, CreditCard, 
-  Shield, MessageSquare, Clock, ArrowRight
+  Shield, MessageSquare, Clock, ArrowRight,
+  Star, TrendingUp, Users, Headphones, Award,
+  ChevronRight, Sparkles, Activity, Globe
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -17,8 +19,10 @@ interface Plan {
   messages: number
   duration: number
   features: string[]
+  highlights?: string[]
   popular?: boolean
   current?: boolean
+  badge?: string
 }
 
 interface WompiConfig {
@@ -34,6 +38,7 @@ export default function UpgradePage() {
   const [wompiConfig, setWompiConfig] = useState<WompiConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
+  const [hoveredPlan, setHoveredPlan] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPlans()
@@ -55,49 +60,60 @@ export default function UpgradePage() {
         const formattedPlans: Plan[] = [
           {
             id: 'basic',
-            name: 'Plan Básico',
+            name: 'Básico',
             price: data.plans.basic.price,
             messages: data.plans.basic.messages,
             duration: data.plans.basic.duration,
             features: [
-              `Hasta ${data.plans.basic.messages} mensajes/mes`,
-              'Plantillas incluidas',
-              'Eliminación automática',
-              'Soporte por email'
+              `${data.plans.basic.messages} mensajes mensuales`,
+              'Plantillas prediseñadas',
+              'Eliminación automática de datos',
+              'Soporte por email en horario laboral',
+              'Panel de control intuitivo'
             ],
-            current: user?.planType === 'basic'
+            highlights: ['Ideal para pequeños negocios'],
+            current: user?.planType === 'basic',
+            badge: 'Empieza aquí'
           },
           {
             id: 'pro',
-            name: 'Plan Pro',
+            name: 'Profesional',
             price: data.plans.pro.price,
             messages: data.plans.pro.messages,
             duration: data.plans.pro.duration,
             features: [
-              `Hasta ${data.plans.pro.messages} mensajes/mes`,
-              'Todas las plantillas incluidas',
-              'Eliminación automática',
-              'Soporte prioritario',
-              'Estadísticas avanzadas'
+              `${data.plans.pro.messages} mensajes mensuales`,
+              'Todas las plantillas + personalizadas',
+              'Eliminación automática garantizada',
+              'Soporte prioritario 12/7',
+              'Análisis y estadísticas detalladas',
+              'Programación avanzada de envíos',
+              'Segmentación de contactos'
             ],
+            highlights: ['El favorito de nuestros clientes'],
             popular: true,
-            current: user?.planType === 'pro'
+            current: user?.planType === 'pro',
+            badge: 'Más vendido'
           },
           {
             id: 'enterprise',
-            name: 'Plan Enterprise',
+            name: 'Empresarial',
             price: data.plans.enterprise.price,
             messages: data.plans.enterprise.messages,
             duration: data.plans.enterprise.duration,
             features: [
-              `Hasta ${data.plans.enterprise.messages} mensajes/mes`,
-              'Plantillas personalizadas ilimitadas',
-              'Eliminación automática',
-              'Soporte 24/7',
-              'Estadísticas avanzadas',
-              'API de integración'
+              `${data.plans.enterprise.messages} mensajes mensuales`,
+              'Plantillas ilimitadas con IA',
+              'Eliminación certificada con reportes',
+              'Soporte dedicado 24/7',
+              'Dashboard ejecutivo con KPIs',
+              'API de integración completa',
+              'Múltiples usuarios y roles',
+              'Compliance y auditoría'
             ],
-            current: user?.planType === 'enterprise'
+            highlights: ['Máximo rendimiento y control'],
+            current: user?.planType === 'enterprise',
+            badge: 'Premium'
           }
         ]
         
@@ -135,7 +151,6 @@ export default function UpgradePage() {
     setProcessingPayment(planId)
 
     try {
-      // Para planes pagos, redirigir a la página de checkout
       router.push(`/dashboard/checkout?plan=${planId}`)
     } catch (error) {
       console.error('Error selecting plan:', error)
@@ -152,46 +167,36 @@ export default function UpgradePage() {
     }).format(price)
   }
 
-  const getPlanIcon = (planId: string) => {
+  const getPlanGradient = (planId: string) => {
     switch (planId) {
-      case 'free': return Shield
-      case 'basic': return MessageSquare
-      case 'pro': return Zap
-      case 'enterprise': return Crown
-      default: return Shield
+      case 'basic': return 'from-blue-500 to-cyan-500'
+      case 'pro': return 'from-purple-500 to-pink-500'
+      case 'enterprise': return 'from-amber-500 to-orange-500'
+      default: return 'from-gray-500 to-gray-600'
     }
   }
 
-  const getPlanColor = (planId: string) => {
+  const getPlanAccent = (planId: string) => {
     switch (planId) {
-      case 'free': return 'text-gray-600'
-      case 'basic': return 'text-blue-600'
-      case 'pro': return 'text-purple-600'
-      case 'enterprise': return 'text-yellow-600'
-      default: return 'text-gray-600'
-    }
-  }
-
-  const getPlanBorder = (planId: string, popular?: boolean) => {
-    if (popular) return 'border-purple-300 ring-2 ring-purple-100'
-    switch (planId) {
-      case 'free': return 'border-gray-200'
-      case 'basic': return 'border-blue-200'
-      case 'pro': return 'border-purple-200'
-      case 'enterprise': return 'border-yellow-200'
-      default: return 'border-gray-200'
+      case 'basic': return 'blue'
+      case 'pro': return 'purple'
+      case 'enterprise': return 'amber'
+      default: return 'gray'
     }
   }
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-96 bg-gray-200 rounded-lg"></div>
-            ))}
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-8">
+            <div className="h-12 bg-gray-200 rounded-lg w-96 mx-auto"></div>
+            <div className="h-6 bg-gray-200 rounded w-full max-w-2xl mx-auto"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-[600px] bg-gray-200 rounded-2xl"></div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -199,192 +204,343 @@ export default function UpgradePage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Elige el plan perfecto para ti
-        </h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
-          Aumenta tu capacidad de mensajería con nuestros planes diseñados para crecer contigo. 
-          Todos los planes incluyen eliminación automática de datos para máxima privacidad.
-        </p>
-      </div>
-
-      {/* Current Plan Info */}
-      {user && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-blue-900">
-                Plan Actual: {user.planType === 'free' ? 'Gratuito' : 
-                user.planType === 'basic' ? 'Básico' : 
-                user.planType === 'pro' ? 'Pro' : 'Enterprise'}
-              </h3>
-              <p className="text-blue-700 text-sm">
-                {user.messagesUsed} de {user.messagesLimit} mensajes utilizados
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="w-20 bg-blue-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min((user.messagesUsed / user.messagesLimit) * 100, 100)}%` 
-                  }}
-                ></div>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        {/* Header mejorado */}
+        <div className="text-center mb-16 space-y-6">
+          <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-primary-100 to-purple-100 rounded-full mb-4">
+            <Sparkles className="w-4 h-4 text-primary-600 mr-2" />
+            <span className="text-sm font-semibold text-primary-700">
+              Planes diseñados para tu éxito
+            </span>
           </div>
-        </div>
-      )}
-
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {plans.map((plan) => {
-          const Icon = getPlanIcon(plan.id)
-          const isCurrentPlan = plan.current
-          const canSelect = !isCurrentPlan && plan.id !== 'free'
           
-          return (
-            <Card 
-              key={plan.id}
-              className={`relative bg-white transition-all duration-300 hover:shadow-lg ${getPlanBorder(plan.id, plan.popular)}`}
-              padding="none"
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                    Más Popular
-                  </div>
-                </div>
-              )}
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+            Potencia tu comunicación empresarial
+          </h1>
+          
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            Elige el plan que mejor se adapte a tu negocio. Sin contratos a largo plazo, 
+            cancela cuando quieras. Tu privacidad siempre protegida.
+          </p>
 
-              <div className="p-6">
-                {/* Plan Header */}
-                <div className="text-center space-y-4 mb-6">
-                  <div className={`w-12 h-12 mx-auto rounded-full bg-gray-100 flex items-center justify-center ${getPlanColor(plan.id)}`}>
-                    <Icon size={24} />
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-                    <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">
-                        {plan.price === 0 ? 'Gratis' : formatPrice(plan.price)}
-                      </span>
-                      {plan.price > 0 && (
-                        <span className="text-gray-500 text-sm">/{plan.duration} días</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div className="space-y-3 mb-6">
-                  {plan.features.map((feature, index) => (
-                    <div key={index} className="flex items-start space-x-2">
-                      <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-600">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Action Button */}
-                <div>
-                  {isCurrentPlan ? (
-                    <div className="w-full py-2 px-4 bg-gray-100 text-gray-600 rounded-lg text-center font-medium">
-                      Plan Actual
-                    </div>
-                  ) : canSelect ? (
-                    <Button
-                      onClick={() => handleSelectPlan(plan.id)}
-                      disabled={processingPayment === plan.id}
-                      className={`w-full ${plan.popular 
-                        ? 'bg-purple-600 hover:bg-purple-700' 
-                        : 'bg-primary-600 hover:bg-primary-700'
-                      }`}
-                    >
-                      {processingPayment === plan.id ? (
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Procesando...
-                        </div>
-                      ) : (
-                        <>
-                          Seleccionar Plan
-                          <ArrowRight size={16} className="ml-1" />
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      disabled
-                    >
-                      Plan Gratuito
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* FAQ Section */}
-      <div className="bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Preguntas Frecuentes
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">
-              ¿Puedo cambiar de plan en cualquier momento?
-            </h4>
-            <p className="text-sm text-gray-600">
-              Sí, puedes actualizar tu plan en cualquier momento. Los cambios se aplican inmediatamente.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">
-              ¿Qué métodos de pago aceptan?
-            </h4>
-            <p className="text-sm text-gray-600">
-              Aceptamos tarjetas de crédito/débito, PSE, Nequi, Daviplata y otros métodos locales.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">
-              ¿Los datos se almacenan permanentemente?
-            </h4>
-            <p className="text-sm text-gray-600">
-              No, todos los datos de contactos se eliminan automáticamente después del envío para proteger la privacidad.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">
-              ¿Hay soporte técnico incluido?
-            </h4>
-            <p className="text-sm text-gray-600">
-              Todos los planes incluyen soporte. Los planes superiores tienen soporte prioritario y 24/7.
-            </p>
+          {/* Stats bar */}
+          <div className="flex flex-wrap justify-center gap-8 pt-8">
+            <div className="flex items-center space-x-2">
+              <Shield className="w-5 h-5 text-green-500" />
+              <span className="text-sm font-medium text-gray-700">100% Privacidad</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-blue-500" />
+              <span className="text-sm font-medium text-gray-700">+1000 Empresas</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Activity className="w-5 h-5 text-purple-500" />
+              <span className="text-sm font-medium text-gray-700">99.9% Uptime</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Globe className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-medium text-gray-700">Cobertura Nacional</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Security Notice */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <Shield className="w-5 h-5 text-green-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-green-900">Privacidad Garantizada</h4>
-            <p className="text-sm text-green-800 mt-1">
-              SafeNotify elimina automáticamente todos los datos de contactos después de cada envío. 
-              No almacenamos información personal de manera permanente, garantizando la máxima privacidad y cumplimiento con GDPR.
+        {/* Current Plan Banner - Mejorado */}
+        {user && user.planType !== 'free' && (
+          <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-500 to-purple-500 p-[2px]">
+            <div className="bg-white rounded-2xl p-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-100 to-purple-100 flex items-center justify-center">
+                    <Award className="w-6 h-6 text-primary-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Tu plan actual: {' '}
+                      <span className="text-primary-600">
+                        {user.planType === 'basic' ? 'Básico' : 
+                         user.planType === 'pro' ? 'Profesional' : 'Empresarial'}
+                      </span>
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Has usado {user.messagesUsed} de {user.messagesLimit} mensajes este mes
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="w-full md:w-64">
+                  <div className="flex justify-between text-xs text-gray-600 mb-2">
+                    <span>Uso mensual</span>
+                    <span className="font-medium">
+                      {Math.round((user.messagesUsed / user.messagesLimit) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary-500 to-purple-500 rounded-full transition-all duration-700 ease-out"
+                      style={{ 
+                        width: `${Math.min((user.messagesUsed / user.messagesLimit) * 100, 100)}%` 
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Plans Grid - Completamente rediseñado */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          {plans.map((plan, index) => {
+            const isCurrentPlan = plan.current
+            const canSelect = !isCurrentPlan && plan.id !== 'free'
+            const accent = getPlanAccent(plan.id)
+            
+            return (
+              <div
+                key={plan.id}
+                className={`relative group ${plan.popular ? 'md:-mt-4' : ''}`}
+                onMouseEnter={() => setHoveredPlan(plan.id)}
+                onMouseLeave={() => setHoveredPlan(null)}
+              >
+                {/* Badge elegante */}
+                {plan.badge && (
+                  <div className={`absolute -top-5 left-1/2 transform -translate-x-1/2 z-10`}>
+                    <div className={`
+                      px-4 py-2 rounded-full text-xs font-bold text-white shadow-lg
+                      ${plan.popular 
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500' 
+                        : `bg-gradient-to-r ${getPlanGradient(plan.id)}`
+                      }
+                    `}>
+                      {plan.badge}
+                    </div>
+                  </div>
+                )}
+
+                <Card 
+                  className={`
+                    relative h-full bg-white overflow-hidden
+                    transition-all duration-500 ease-out
+                    ${hoveredPlan === plan.id ? 'shadow-2xl scale-[1.02]' : 'shadow-lg'}
+                    ${plan.popular ? 'ring-2 ring-purple-200' : ''}
+                    ${isCurrentPlan ? 'ring-2 ring-primary-200' : ''}
+                    hover:ring-2 hover:ring-${accent}-200
+                  `}
+                  padding="none"
+                >
+                  {/* Gradient header */}
+                  <div className={`
+                    h-2 bg-gradient-to-r ${getPlanGradient(plan.id)}
+                  `} />
+
+                  <div className="p-8">
+                    {/* Plan Header */}
+                    <div className="text-center mb-8">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        {plan.name}
+                      </h3>
+                      
+                      {plan.highlights && (
+                        <p className="text-sm text-gray-500 italic">
+                          {plan.highlights[0]}
+                        </p>
+                      )}
+
+                      {/* Price display mejorado */}
+                      <div className="mt-6 space-y-1">
+                        <div className="flex items-baseline justify-center">
+                          <span className="text-5xl font-bold text-gray-900">
+                            {formatPrice(plan.price).split('$')[1].split('.')[0]}
+                          </span>
+                          <span className="text-lg text-gray-500 ml-2">mil</span>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          por {plan.duration} días
+                        </p>
+                      </div>
+
+                      {/* Messages badge */}
+                      <div className="mt-4 inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-full">
+                        <MessageSquare className="w-4 h-4 text-gray-600 mr-2" />
+                        <span className="text-sm font-medium text-gray-700">
+                          {plan.messages.toLocaleString()} mensajes/mes
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Features con mejor diseño */}
+                    <div className="space-y-4 mb-8">
+                      {plan.features.map((feature, fIndex) => (
+                        <div 
+                          key={fIndex} 
+                          className="flex items-start space-x-3 group/item"
+                        >
+                          <div className={`
+                            w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5
+                            bg-${accent}-100 group-hover/item:bg-${accent}-200 transition-colors
+                          `}>
+                            <Check className={`w-3 h-3 text-${accent}-600`} />
+                          </div>
+                          <span className="text-sm text-gray-600 leading-relaxed">
+                            {feature}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA Button mejorado */}
+                    <div className="mt-auto">
+                      {isCurrentPlan ? (
+                        <div className="w-full py-3 px-4 bg-gray-100 text-gray-600 rounded-xl text-center font-medium">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Award className="w-4 h-4" />
+                            <span>Plan Actual</span>
+                          </div>
+                        </div>
+                      ) : canSelect ? (
+                        <Button
+                          onClick={() => handleSelectPlan(plan.id)}
+                          disabled={processingPayment === plan.id}
+                          className={`
+                            w-full py-6 text-base font-semibold rounded-xl
+                            transition-all duration-300 transform
+                            ${plan.popular 
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl' 
+                              : `bg-gradient-to-r ${getPlanGradient(plan.id)} text-white hover:shadow-lg`
+                            }
+                            hover:scale-[1.02] active:scale-[0.98]
+                          `}
+                        >
+                          {processingPayment === plan.id ? (
+                            <div className="flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3" />
+                              Procesando...
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center">
+                              <span>Elegir este plan</span>
+                              <ChevronRight className="w-5 h-5 ml-2" />
+                            </div>
+                          )}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Trust badges */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Shield className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">
+                  Seguridad Garantizada
+                </h4>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Encriptación de extremo a extremo y eliminación automática de datos
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Headphones className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">
+                  Soporte Dedicado
+                </h4>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Equipo de expertos disponible para ayudarte en cada paso
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">
+                  Crece Sin Límites
+                </h4>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Actualiza o cambia tu plan en cualquier momento sin penalizaciones
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ Section mejorada */}
+        <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 shadow-sm">
+          <div className="text-center mb-8">
+            <h3 className="text-2xl font-bold text-gray-900">
+              Preguntas frecuentes
+            </h3>
+            <p className="text-gray-600 mt-2">
+              Todo lo que necesitas saber sobre nuestros planes
             </p>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {[
+              {
+                q: '¿Puedo cambiar de plan después?',
+                a: 'Por supuesto. Puedes actualizar o cambiar tu plan en cualquier momento desde tu panel de control. Los cambios se aplican inmediatamente.'
+              },
+              {
+                q: '¿Qué métodos de pago aceptan?',
+                a: 'Aceptamos todas las tarjetas de crédito y débito, PSE para transferencias bancarias, y billeteras digitales como Nequi y Daviplata.'
+              },
+              {
+                q: '¿Mis datos están seguros?',
+                a: 'Absolutamente. Usamos encriptación de grado bancario y eliminamos automáticamente todos los datos de contactos después de cada envío.'
+              },
+              {
+                q: '¿Hay contratos o permanencia?',
+                a: 'No. Todos nuestros planes son mes a mes sin contratos ni cláusulas de permanencia. Cancela cuando quieras.'
+              }
+            ].map((faq, i) => (
+              <div key={i} className="space-y-2">
+                <h4 className="font-semibold text-gray-900 flex items-start">
+                  <span className="text-primary-500 mr-2">•</span>
+                  {faq.q}
+                </h4>
+                <p className="text-sm text-gray-600 leading-relaxed ml-4">
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Final CTA */}
+        <div className="mt-16 text-center">
+          <p className="text-gray-600 mb-4">
+            ¿Necesitas ayuda eligiendo el plan correcto?
+          </p>
+          <Button
+            variant="outline"
+            className="border-2 hover:bg-gray-50"
+            onClick={() => window.location.href = 'mailto:soporte@safenotify.com'}
+          >
+            <Headphones className="w-4 h-4 mr-2" />
+            Hablar con ventas
+          </Button>
         </div>
       </div>
     </div>

@@ -4,7 +4,10 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   CreditCard, Smartphone, Building2, Shield, 
-  ArrowLeft, Check, Lock, AlertTriangle
+  ArrowLeft, Check, Lock, AlertTriangle, Info,
+  ShieldCheck, Zap, ChevronRight, Package,
+  Calendar, MessageSquare, Sparkles, BadgeCheck,
+  Globe, Clock, CheckCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -23,6 +26,7 @@ interface PaymentMethod {
   icon: any
   description: string
   available: boolean
+  badge?: string
 }
 
 function CheckoutContent() {
@@ -37,47 +41,40 @@ function CheckoutContent() {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const [hoveredMethod, setHoveredMethod] = useState<string | null>(null)
   
-  // Card form data
-  const [cardData, setCardData] = useState({
-    number: '',
-    cvc: '',
-    exp_month: '',
-    exp_year: '',
-    card_holder: ''
-  })
-
-  // Customer data
+  // Customer data mejorado
   const [customerData, setCustomerData] = useState({
     name: user?.name || '',
     phone: '',
+    email: user?.email || '',
     acceptance_token: ''
   })
-
-  // PSE data
-  const [pseBank, setPseBank] = useState('')
 
   const paymentMethods: PaymentMethod[] = [
     {
       id: 'CARD',
       name: 'Tarjeta de Crédito/Débito',
       icon: CreditCard,
-      description: 'Visa, Mastercard, American Express',
-      available: true
+      description: 'Visa, Mastercard, American Express, Diners',
+      available: true,
+      badge: 'Más usado'
     },
     {
       id: 'PSE',
-      name: 'PSE',
+      name: 'Transferencia Bancaria PSE',
       icon: Building2,
-      description: 'Pago Seguro en Línea',
-      available: true
+      description: 'Pago seguro desde tu banco',
+      available: true,
+      badge: 'Instantáneo'
     },
     {
       id: 'NEQUI',
       name: 'Nequi',
       icon: Smartphone,
-      description: 'Pago con Nequi',
-      available: true
+      description: 'Pago rápido con tu celular',
+      available: true,
+      badge: 'Popular'
     }
   ]
 
@@ -102,14 +99,17 @@ function CheckoutContent() {
 
       const data = await response.json()
       
-      if (data.success && data.plans[planId]) {
-        setPlan(data.plans[planId])
-      } else {
-        router.push('/dashboard/upgrade')
+      if (data.success && data.plans[planId as string]) {
+        const selectedPlan = data.plans[planId as string]
+        setPlan({
+          name: getPlanDisplayName(planId as string),
+          price: selectedPlan.price,
+          messages: selectedPlan.messages,
+          duration: selectedPlan.duration
+        })
       }
     } catch (error) {
       console.error('Error fetching plan:', error)
-      router.push('/dashboard/upgrade')
     } finally {
       setLoading(false)
     }
@@ -127,74 +127,39 @@ function CheckoutContent() {
       const data = await response.json()
       
       if (data.success) {
-        setCustomerData(prev => ({
-          ...prev,
-          acceptance_token: data.acceptance_token
-        }))
+        setCustomerData(prev => ({ ...prev, acceptance_token: data.acceptance_token }))
       }
     } catch (error) {
       console.error('Error fetching acceptance token:', error)
     }
   }
 
-  const handleCardInputChange = (field: string, value: string) => {
-    let formattedValue = value
-
-    if (field === 'number') {
-      // Format card number with spaces
-      formattedValue = value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim()
-      if (formattedValue.length > 19) return // Max length for formatted card
-    } else if (field === 'cvc') {
-      formattedValue = value.replace(/\D/g, '').slice(0, 4)
-    } else if (field === 'exp_month') {
-      formattedValue = value.replace(/\D/g, '').slice(0, 2)
-      if (parseInt(formattedValue) > 12) formattedValue = '12'
-    } else if (field === 'exp_year') {
-      formattedValue = value.replace(/\D/g, '').slice(0, 4)
+  const getPlanDisplayName = (planId: string) => {
+    switch (planId) {
+      case 'basic': return 'Plan Básico'
+      case 'pro': return 'Plan Profesional'
+      case 'enterprise': return 'Plan Empresarial'
+      default: return 'Plan'
     }
-
-    setCardData(prev => ({
-      ...prev,
-      [field]: formattedValue
-    }))
   }
 
-  const validateCardData = () => {
-    if (!cardData.number || !cardData.cvc || !cardData.exp_month || !cardData.exp_year || !cardData.card_holder) {
-      return 'Todos los campos de la tarjeta son requeridos'
+  const getPlanGradient = (planId: string | null) => {
+    switch (planId) {
+      case 'basic': return 'from-blue-500 to-cyan-500'
+      case 'pro': return 'from-purple-500 to-pink-500'
+      case 'enterprise': return 'from-amber-500 to-orange-500'
+      default: return 'from-gray-500 to-gray-600'
     }
-
-    const cleanNumber = cardData.number.replace(/\s/g, '')
-    if (cleanNumber.length < 15) {
-      return 'Número de tarjeta inválido'
-    }
-
-    if (cardData.cvc.length < 3) {
-      return 'CVC inválido'
-    }
-
-    const expMonth = parseInt(cardData.exp_month)
-    if (expMonth < 1 || expMonth > 12) {
-      return 'Mes de expiración inválido'
-    }
-
-    const expYear = parseInt(cardData.exp_year)
-    const currentYear = new Date().getFullYear()
-    if (expYear < currentYear || expYear > currentYear + 20) {
-      return 'Año de expiración inválido'
-    }
-
-    return null
   }
 
   const handlePayment = async () => {
     if (!acceptTerms) {
-      setError('Debes aceptar los términos y condiciones')
+      setError('Debes aceptar los términos y condiciones para continuar')
       return
     }
 
     if (!customerData.name || !customerData.phone) {
-      setError('Nombre y teléfono son requeridos')
+      setError('Por favor completa todos los campos requeridos')
       return
     }
 
@@ -206,7 +171,7 @@ function CheckoutContent() {
       
       const payload = {
         planType: planId,
-        paymentMethod: 'CHECKOUT', // Siempre usar el checkout de Wompi
+        paymentMethod: 'CHECKOUT',
         customerData: customerData
       }
 
@@ -246,12 +211,14 @@ function CheckoutContent() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-64"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-96 bg-gray-200 rounded"></div>
-            <div className="h-96 bg-gray-200 rounded"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-8">
+            <div className="h-10 bg-gray-200 rounded-lg w-48"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 h-[600px] bg-gray-200 rounded-2xl"></div>
+              <div className="h-[600px] bg-gray-200 rounded-2xl"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -263,182 +230,379 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/dashboard/upgrade')}
-        >
-          <ArrowLeft size={16} className="mr-1" />
-          Volver a planes
-        </Button>
-        <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center">
-          <AlertTriangle className="w-5 h-5 mr-2" />
-          {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Payment Form */}
-        <Card className="bg-white" padding="lg">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">
-            Información de Pago
-          </h2>
-
-          <div className="space-y-6">
-            {/* Customer Information */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-gray-900">Información Personal</h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre completo *
-                </label>
-                <input
-                  type="text"
-                  value={customerData.name}
-                  onChange={(e) => setCustomerData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                  placeholder="Tu nombre completo"
-                />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* Header elegante */}
+        <div className="mb-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/dashboard/upgrade')}
+            className="mb-4 hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Cambiar plan
+          </Button>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Finalizar compra
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Completa tu información para activar tu plan
+              </p>
+            </div>
+            
+            {/* Trust badges */}
+            <div className="hidden lg:flex items-center space-x-6">
+              <div className="flex items-center text-sm text-gray-600">
+                <ShieldCheck className="w-5 h-5 text-green-500 mr-2" />
+                Pago 100% seguro
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono *
-                </label>
-                <input
-                  type="tel"
-                  value={customerData.phone}
-                  onChange={(e) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                  placeholder="+57 300 123 4567"
-                />
+              <div className="flex items-center text-sm text-gray-600">
+                <Lock className="w-5 h-5 text-blue-500 mr-2" />
+                Encriptación SSL
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Payment Methods Info */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-gray-900">Métodos de Pago Disponibles</h3>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 mb-3">
-                  Serás redirigido a la plataforma segura de Wompi donde podrás pagar con:
-                </p>
-                <div className="grid grid-cols-1 gap-2 text-sm text-blue-700">
-                  <div className="flex items-center">
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Tarjetas de crédito/débito (Visa, Mastercard, American Express)
+        {/* Error Message mejorado */}
+        {error && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex items-start">
+              <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <p className="text-red-800 font-medium">Error en el proceso</p>
+                <p className="text-red-700 text-sm mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Payment Form - Mejorado */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Información Personal */}
+            <Card className="bg-white overflow-hidden" padding="none">
+              <div className={`h-1 bg-gradient-to-r ${getPlanGradient(planId)}`} />
+              <div className="p-6">
+                <div className="flex items-center mb-6">
+                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center mr-3">
+                    <span className="text-primary-600 font-bold">1</span>
                   </div>
-                  <div className="flex items-center">
-                    <Building2 className="w-4 h-4 mr-2" />
-                    PSE - Transferencia bancaria
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Información personal
+                  </h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre completo *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={customerData.name}
+                        onChange={(e) => setCustomerData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-gray-900"
+                        placeholder="Juan Pérez"
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center">
-                    <Smartphone className="w-4 h-4 mr-2" />
-                    Nequi
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Teléfono móvil *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        value={customerData.phone}
+                        onChange={(e) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-gray-900"
+                        placeholder="300 123 4567"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Correo electrónico
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={customerData.email}
+                        disabled
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600"
+                      />
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <BadgeCheck className="w-5 h-5 text-green-500" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Usaremos este correo para enviarte la confirmación
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
 
-            {/* Terms and Conditions */}
-            <div className="flex items-start space-x-2">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <label htmlFor="terms" className="text-sm text-gray-600">
-                Acepto los{' '}
-                <a href="#" className="text-primary-600 hover:underline">
-                  términos y condiciones
-                </a>{' '}
-                y la{' '}
-                <a href="#" className="text-primary-600 hover:underline">
-                  política de privacidad
-                </a>
-              </label>
-            </div>
+            {/* Métodos de Pago - Rediseñado */}
+            <Card className="bg-white overflow-hidden" padding="none">
+              <div className={`h-1 bg-gradient-to-r ${getPlanGradient(planId)}`} />
+              <div className="p-6">
+                <div className="flex items-center mb-6">
+                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center mr-3">
+                    <span className="text-primary-600 font-bold">2</span>
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Método de pago
+                  </h2>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 mb-6">
+                  <div className="flex items-start">
+                    <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-blue-900 font-medium mb-1">
+                        Pago 100% seguro con Wompi
+                      </p>
+                      <p className="text-xs text-blue-800">
+                        Serás redirigido a la plataforma certificada de Wompi para completar tu pago de forma segura
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {paymentMethods.map((method) => (
+                    <div
+                      key={method.id}
+                      className={`
+                        relative rounded-xl border-2 p-4 cursor-pointer transition-all
+                        ${selectedPaymentMethod === method.id 
+                          ? 'border-primary-500 bg-primary-50' 
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                        }
+                      `}
+                      onClick={() => setSelectedPaymentMethod(method.id)}
+                      onMouseEnter={() => setHoveredMethod(method.id)}
+                      onMouseLeave={() => setHoveredMethod(null)}
+                    >
+                      {method.badge && (
+                        <div className="absolute -top-2 -right-2">
+                          <span className="px-2 py-1 bg-gradient-to-r from-primary-500 to-purple-500 text-white text-xs rounded-full font-medium">
+                            {method.badge}
+                          </span>
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-col items-center text-center space-y-2">
+                        <div className={`
+                          w-12 h-12 rounded-xl flex items-center justify-center transition-colors
+                          ${selectedPaymentMethod === method.id 
+                            ? 'bg-primary-100' 
+                            : 'bg-gray-100'
+                          }
+                        `}>
+                          <method.icon className={`
+                            w-6 h-6 
+                            ${selectedPaymentMethod === method.id 
+                              ? 'text-primary-600' 
+                              : 'text-gray-600'
+                            }
+                          `} />
+                        </div>
+                        <h4 className="font-medium text-gray-900 text-sm">
+                          {method.name}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {method.description}
+                        </p>
+                      </div>
+                      
+                      {selectedPaymentMethod === method.id && (
+                        <div className="absolute top-2 right-2">
+                          <CheckCircle className="w-5 h-5 text-primary-500" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center justify-center space-x-6 text-xs text-gray-600">
+                    <img src="/api/placeholder/60/20" alt="Visa" className="h-5" />
+                    <img src="/api/placeholder/60/20" alt="Mastercard" className="h-5" />
+                    <img src="/api/placeholder/60/20" alt="PSE" className="h-5" />
+                    <span className="font-medium">y más...</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Términos y Condiciones - Mejorado */}
+            <Card className="bg-white" padding="lg">
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                />
+                <label htmlFor="terms" className="text-sm text-gray-700 leading-relaxed cursor-pointer">
+                  Acepto los{' '}
+                  <a href="#" className="text-primary-600 hover:text-primary-700 font-medium underline">
+                    términos y condiciones
+                  </a>{' '}
+                  y autorizo el tratamiento de mis datos según la{' '}
+                  <a href="#" className="text-primary-600 hover:text-primary-700 font-medium underline">
+                    política de privacidad
+                  </a>. 
+                  Entiendo que mis datos serán eliminados automáticamente después de cada envío de mensajes.
+                </label>
+              </div>
+            </Card>
           </div>
-        </Card>
 
-        {/* Order Summary */}
-        <Card className="bg-white" padding="lg">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">
-            Resumen del Pedido
-          </h2>
+          {/* Order Summary - Completamente rediseñado */}
+          <div className="lg:sticky lg:top-8 space-y-6 h-fit">
+            <Card className="bg-white overflow-hidden shadow-xl" padding="none">
+              <div className={`p-6 bg-gradient-to-r ${getPlanGradient(planId)} text-white`}>
+                <h2 className="text-xl font-bold mb-2">
+                  Resumen de tu compra
+                </h2>
+                <p className="text-sm opacity-90">
+                  Plan {plan.name.replace('Plan ', '')}
+                </p>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Plan Features */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center text-gray-600">
+                      <Package className="w-4 h-4 mr-2" />
+                      Plan seleccionado
+                    </div>
+                    <span className="font-semibold text-gray-900">{plan.name}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center text-gray-600">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Mensajes incluidos
+                    </div>
+                    <span className="font-semibold text-gray-900">
+                      {plan.messages.toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Vigencia
+                    </div>
+                    <span className="font-semibold text-gray-900">{plan.duration} días</span>
+                  </div>
 
-          <div className="space-y-6">
-            {/* Plan Details */}
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Plan seleccionado</span>
-                <span className="font-medium text-gray-900">{plan.name}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Mensajes incluidos</span>
-                <span className="font-medium text-gray-900">{plan.messages.toLocaleString('es-CO')}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Duración</span>
-                <span className="font-medium text-gray-900">{plan.duration} días</span>
-              </div>
-              
-              <hr className="border-gray-200" />
-              
-              <div className="flex justify-between text-lg">
-                <span className="font-semibold text-gray-900">Total</span>
-                <span className="font-bold text-gray-900">{formatPrice(plan.price)}</span>
-              </div>
-            </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center text-gray-600">
+                      <Clock className="w-4 h-4 mr-2" />
+                      Activación
+                    </div>
+                    <span className="font-semibold text-green-600">Inmediata</span>
+                  </div>
+                </div>
 
-            {/* Security Notice */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start space-x-2">
-                <Lock className="w-5 h-5 text-green-600 mt-0.5" />
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="text-gray-900">{formatPrice(plan.price)}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-gray-600">IVA incluido</span>
+                    <span className="text-gray-900">$0</span>
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-bold text-gray-900">Total a pagar</span>
+                      <span className="text-2xl font-bold text-gray-900">
+                        {formatPrice(plan.price)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      *Precio final en pesos colombianos
+                    </p>
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                <Button
+                  onClick={handlePayment}
+                  disabled={processing || !acceptTerms || !customerData.name || !customerData.phone}
+                  className={`
+                    w-full py-6 text-base font-semibold rounded-xl
+                    bg-gradient-to-r ${getPlanGradient(planId)}
+                    hover:shadow-lg transition-all duration-300
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    transform hover:scale-[1.02] active:scale-[0.98]
+                  `}
+                >
+                  {processing ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3" />
+                      Procesando...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <Lock className="w-5 h-5 mr-2" />
+                      Pagar de forma segura
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </div>
+                  )}
+                </Button>
+
+                {/* Security badges */}
+                <div className="flex items-center justify-center space-x-4 pt-4">
+                  <div className="flex items-center text-xs text-gray-500">
+                    <ShieldCheck className="w-4 h-4 text-green-500 mr-1" />
+                    Pago seguro
+                  </div>
+                  <div className="flex items-center text-xs text-gray-500">
+                    <Lock className="w-4 h-4 text-blue-500 mr-1" />
+                    256-bit SSL
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Garantías */}
+            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200" padding="md">
+              <div className="flex items-start space-x-3">
+                <Shield className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="font-medium text-green-900">Pago 100% Seguro</h4>
-                  <p className="text-sm text-green-800 mt-1">
-                    Procesado por Wompi con encriptación SSL de 256 bits
+                  <h4 className="font-semibold text-green-900 mb-1">
+                    Garantía de satisfacción
+                  </h4>
+                  <p className="text-xs text-green-800 leading-relaxed">
+                    Si no estás satisfecho con tu plan, puedes cancelar en cualquier momento sin penalizaciones.
                   </p>
                 </div>
               </div>
-            </div>
-
-            {/* Payment Button */}
-            <Button
-              onClick={handlePayment}
-              disabled={processing || !acceptTerms}
-              className="w-full bg-primary-600 hover:bg-primary-700"
-              size="lg"
-            >
-              {processing ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Procesando...
-                </div>
-              ) : (
-                <>
-                  <Lock size={16} className="mr-2" />
-                  Pagar {formatPrice(plan.price)}
-                </>
-              )}
-            </Button>
-
+            </Card>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   )
@@ -447,12 +611,14 @@ function CheckoutContent() {
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
-      <div className="max-w-4xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-64"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-96 bg-gray-200 rounded"></div>
-            <div className="h-96 bg-gray-200 rounded"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-8">
+            <div className="h-10 bg-gray-200 rounded-lg w-48"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 h-[600px] bg-gray-200 rounded-2xl"></div>
+              <div className="h-[600px] bg-gray-200 rounded-2xl"></div>
+            </div>
           </div>
         </div>
       </div>
