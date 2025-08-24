@@ -54,66 +54,48 @@ export default function UpgradePage() {
       if (data.success) {
         const formattedPlans: Plan[] = [
           {
-            id: 'free',
-            name: 'Plan Gratuito',
-            price: 0,
-            messages: 10,
-            duration: 0,
-            features: [
-              '10 mensajes por mes',
-              'Plantillas básicas',
-              'Soporte por email',
-              'Eliminación automática de datos'
-            ],
-            current: user?.planType === 'free'
-          },
-          {
             id: 'basic',
-            name: data.plans.basic.name,
+            name: 'Plan Básico',
             price: data.plans.basic.price,
             messages: data.plans.basic.messages,
             duration: data.plans.basic.duration,
             features: [
-              `${data.plans.basic.messages} mensajes por mes`,
-              'Todas las plantillas incluidas',
-              'Soporte prioritario',
-              'Estadísticas avanzadas',
-              'Eliminación automática de datos'
+              `Hasta ${data.plans.basic.messages} mensajes/mes`,
+              'Plantillas incluidas',
+              'Eliminación automática',
+              'Soporte por email'
             ],
             current: user?.planType === 'basic'
           },
           {
             id: 'pro',
-            name: data.plans.pro.name,
+            name: 'Plan Pro',
             price: data.plans.pro.price,
             messages: data.plans.pro.messages,
             duration: data.plans.pro.duration,
             features: [
-              `${data.plans.pro.messages} mensajes por mes`,
+              `Hasta ${data.plans.pro.messages} mensajes/mes`,
               'Todas las plantillas incluidas',
-              'Plantillas personalizadas ilimitadas',
-              'Soporte 24/7 por chat',
-              'Estadísticas avanzadas',
-              'API de integración',
-              'Eliminación automática de datos'
+              'Eliminación automática',
+              'Soporte prioritario',
+              'Estadísticas avanzadas'
             ],
             popular: true,
             current: user?.planType === 'pro'
           },
           {
             id: 'enterprise',
-            name: data.plans.enterprise.name,
+            name: 'Plan Enterprise',
             price: data.plans.enterprise.price,
             messages: data.plans.enterprise.messages,
             duration: data.plans.enterprise.duration,
             features: [
-              `${data.plans.enterprise.messages} mensajes por mes`,
-              'Todas las características Pro',
-              'Soporte dedicado',
-              'Integración personalizada',
-              'SLA garantizado',
-              'Onboarding personalizado',
-              'Eliminación automática de datos'
+              `Hasta ${data.plans.enterprise.messages} mensajes/mes`,
+              'Plantillas personalizadas ilimitadas',
+              'Eliminación automática',
+              'Soporte 24/7',
+              'Estadísticas avanzadas',
+              'API de integración'
             ],
             current: user?.planType === 'enterprise'
           }

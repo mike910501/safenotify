@@ -1,0 +1,268 @@
+###
+# SafeNotify Backend API Testing
+# Use this file with REST Client extension in VS Code
+# or import into Postman/Insomnia
+
+@baseUrl = http://localhost:3001
+@apiKey = your-api-key-here
+
+### Health Check (No Auth Required)
+GET {{baseUrl}}/health
+
+### API Documentation (No Auth Required)
+GET {{baseUrl}}/api
+
+### System Stats (Auth Required)
+GET {{baseUrl}}/api/system/stats
+x-api-key: {{apiKey}}
+
+### List Available Templates
+GET {{baseUrl}}/api/templates
+x-api-key: {{apiKey}}
+
+### Get Specific Template
+GET {{baseUrl}}/api/templates/HX123abc456def789
+x-api-key: {{apiKey}}
+
+### Preview Template with Sample Data
+GET {{baseUrl}}/api/templates/HX123abc456def789/preview?sampleData={"nombre":"Juan Pérez","doctor":"Dr. García","fecha":"2024-01-15","hora":"14:30"}
+x-api-key: {{apiKey}}
+
+### Create Campaign with CSV Upload
+POST {{baseUrl}}/api/campaigns/create
+x-api-key: {{apiKey}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+Test Medical Campaign
+--boundary
+Content-Disposition: form-data; name="templateSid"
+
+HX123abc456def789
+--boundary
+Content-Disposition: form-data; name="variableMappings"
+
+{"nombre":"nombre","doctor":"doctor","fecha":"fecha","hora":"hora"}
+--boundary
+Content-Disposition: form-data; name="defaultValues"
+
+{"doctor":"Dr. García"}
+--boundary
+Content-Disposition: form-data; name="csvFile"; filename="contacts.csv"
+Content-Type: text/csv
+
+nombre,telefono,fecha,hora
+Juan Pérez,+573001234567,2024-01-15,14:30
+María López,+573157894561,2024-01-16,10:00
+Carlos Sánchez,+573226667788,2024-01-17,16:15
+--boundary--
+
+### List Recent Campaigns
+GET {{baseUrl}}/api/campaigns
+x-api-key: {{apiKey}}
+
+### Get Campaign Statistics
+GET {{baseUrl}}/api/campaigns/your-campaign-id-here/stats
+x-api-key: {{apiKey}}
+
+### Get Campaign Messages
+GET {{baseUrl}}/api/campaigns/your-campaign-id-here/messages?limit=50&offset=0
+x-api-key: {{apiKey}}
+
+### Send Campaign Messages
+POST {{baseUrl}}/api/campaigns/your-campaign-id-here/send
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "confirm": "true"
+}
+
+### Retry Failed Messages
+POST {{baseUrl}}/api/campaigns/your-campaign-id-here/retry
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "maxRetries": 3
+}
+
+### Delete Campaign
+DELETE {{baseUrl}}/api/campaigns/your-campaign-id-here
+x-api-key: {{apiKey}}
+
+### Webhook Health Check (No Auth Required)
+GET {{baseUrl}}/api/webhooks/health
+
+### Test Webhook (Development Only)
+GET {{baseUrl}}/api/webhooks/twilio/test
+
+### Simulate Webhook (Development Only)
+POST {{baseUrl}}/api/webhooks/twilio/simulate
+Content-Type: application/json
+
+{
+  "MessageSid": "SM123abc456def789",
+  "MessageStatus": "delivered",
+  "From": "whatsapp:+14155238886",
+  "To": "whatsapp:+573001234567"
+}
+
+### Manual Cleanup - Campaigns
+POST {{baseUrl}}/api/system/cleanup
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "operation": "campaigns"
+}
+
+### Manual Cleanup - Logs
+POST {{baseUrl}}/api/system/cleanup
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "operation": "logs"
+}
+
+### Manual Cleanup - Database Optimization
+POST {{baseUrl}}/api/system/cleanup
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "operation": "database"
+}
+
+### Emergency Cleanup (Use with caution)
+POST {{baseUrl}}/api/system/cleanup
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "operation": "emergency"
+}
+
+### Update Template Mapping
+PUT {{baseUrl}}/api/templates/HX123abc456def789
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "templateName": "Medical Appointment Reminder",
+  "variables": ["nombre", "doctor", "fecha", "hora"]
+}
+
+### Template Category Statistics
+GET {{baseUrl}}/api/templates/categories/stats
+x-api-key: {{apiKey}}
+
+###
+# Test Scenarios for Production Readiness
+
+### Rate Limiting Test (Should fail after too many requests)
+GET {{baseUrl}}/api/templates
+x-api-key: {{apiKey}}
+
+### Invalid API Key Test (Should return 401)
+GET {{baseUrl}}/api/templates
+x-api-key: invalid-key
+
+### Large File Upload Test (Should respect file size limits)
+POST {{baseUrl}}/api/campaigns/create
+x-api-key: {{apiKey}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="csvFile"; filename="large.csv"
+Content-Type: text/csv
+
+[Large CSV content here - test file size limits]
+--boundary--
+
+### Security Headers Test (Check response headers)
+GET {{baseUrl}}/health
+
+### CORS Test (Should work from allowed origins)
+OPTIONS {{baseUrl}}/api/templates
+Origin: http://localhost:3000
+
+###
+# Error Handling Tests
+
+### Non-existent Campaign
+GET {{baseUrl}}/api/campaigns/non-existent-id/stats
+x-api-key: {{apiKey}}
+
+### Invalid Template SID Format
+GET {{baseUrl}}/api/templates/invalid-sid
+x-api-key: {{apiKey}}
+
+### Missing Required Fields
+POST {{baseUrl}}/api/campaigns/create
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "name": "Test"
+  // Missing templateSid and other required fields
+}
+
+### Invalid JSON
+POST {{baseUrl}}/api/campaigns/create
+x-api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "variableMappings": "invalid-json"
+}
+
+###
+# Performance Tests
+
+### Concurrent Requests (Run multiple times quickly)
+GET {{baseUrl}}/api/templates
+x-api-key: {{apiKey}}
+
+### Large Dataset Query
+GET {{baseUrl}}/api/campaigns?limit=1000
+x-api-key: {{apiKey}}
+
+###
+# Integration Tests
+
+### Complete Campaign Workflow
+# 1. Create campaign
+# 2. Get stats
+# 3. Send messages  
+# 4. Check status
+# 5. Delete campaign
+
+### Full Template Management
+# 1. List templates
+# 2. Get specific template
+# 3. Preview template
+# 4. Update mapping
+# 5. Get stats
+
+###
+# Monitoring and Health
+
+### System Resource Usage
+GET {{baseUrl}}/api/system/stats
+x-api-key: {{apiKey}}
+
+### Database Health
+GET {{baseUrl}}/health
+
+### Log Analysis (Check logs directory after running tests)
+# Check the following log files:
+# - logs/safenotify.log (all events)
+# - logs/error.log (errors only)  
+# - logs/audit.log (security events)
+
+###

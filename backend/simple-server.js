@@ -8,6 +8,9 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 
+// Import routes and services
+const paymentRoutes = require('./routes/payments');
+
 // Database connection
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -32,7 +35,7 @@ const verifyToken = (token) => {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
@@ -192,39 +195,106 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.post('/api/auth/register', (req, res) => {
-  const { email, password, name } = req.body;
-  
-  console.log('Register attempt:', email);
-  
-  if (email && password) {
-    // Generate real JWT token
-    const realToken = generateToken('1');
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    
+    console.log('🔐 Register attempt for:', email);
+    
+    // Validación básica
+    if (!email || !password || !name) {
+      console.log('❌ Missing required fields');
+      return res.status(400).json({
+        success: false,
+        error: 'Nombre, email y contraseña son requeridos'
+      });
+    }
+
+    // Validar longitud de contraseña
+    if (password.length < 6) {
+      console.log('❌ Password too short');
+      return res.status(400).json({
+        success: false,
+        error: 'La contraseña debe tener al menos 6 caracteres'
+      });
+    }
+    
+    // Verificar si el email ya existe
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (existingUser) {
+      console.log('❌ Email already exists:', email);
+      return res.status(409).json({
+        success: false,
+        error: 'Este email ya está registrado'
+      });
+    }
+    
+    // Hash de la contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Crear usuario en la base de datos
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role: 'user',
+        planType: 'free',
+        messagesLimit: 10,
+        messagesUsed: 0
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        planType: true,
+        planExpiry: true,
+        messagesUsed: true,
+        messagesLimit: true
+      }
+    });
+    
+    console.log('✅ User created successfully:', newUser.email, 'ID:', newUser.id);
+    
+    // Generar token JWT con el ID real del usuario
+    const token = generateToken(newUser.id);
     
     // Set cookie for authentication
-    res.cookie('token', realToken, {
+    res.cookie('token', token, {
       httpOnly: true,
       secure: false, // false for localhost
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     
-    res.json({
+    // Respuesta exitosa con datos reales del usuario
+    res.status(201).json({
       success: true,
+      message: 'Usuario creado exitosamente',
       user: {
-        id: '1',
-        email: email,
-        name: name || email.split('@')[0],
-        planType: 'free',
-        messagesLimit: 10,
-        messagesUsed: 0
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        planType: newUser.planType,
+        messagesUsed: newUser.messagesUsed,
+        messagesLimit: newUser.messagesLimit,
+        planExpiry: newUser.planExpiry,
+        createdAt: newUser.createdAt
       },
-      token: realToken
+      token: token
     });
-  } else {
-    res.status(400).json({
+    
+  } catch (error) {
+    console.error('❌ Error in registration:', error);
+    res.status(500).json({
       success: false,
-      error: 'Email y contraseña son requeridos'
+      error: 'Error interno del servidor'
     });
   }
 });
@@ -1671,12 +1741,15 @@ process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
 
-// Start server
+// Mount payment routes
+app.use('/api/payments', paymentRoutes);
+
 const server = app.listen(PORT, () => {
   console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT}`);
   console.log(`📖 API Documentation: http://localhost:${PORT}/api`);
   console.log(`💚 Health Check: http://localhost:${PORT}/health`);
   console.log(`📋 Templates: http://localhost:${PORT}/api/templates`);
+  console.log(`💰 Payments: http://localhost:${PORT}/api/payments`);
 });
 
 // Graceful shutdown

@@ -9,11 +9,11 @@ export function PricingPreview() {
     {
       name: 'Plan Básico',
       description: 'Perfecto para pequeños negocios',
-      price: '$125,000',
+      price: '$25,000',
       period: '/mes',
       features: [
-        'Hasta 1,000 mensajes/mes',
-        'Plantillas básicas',
+        'Hasta 100 mensajes/mes',
+        'Plantillas incluidas',
         'Eliminación automática',
         'Soporte por email'
       ],
@@ -21,32 +21,32 @@ export function PricingPreview() {
       popular: false
     },
     {
-      name: 'Plan Profesional',
+      name: 'Plan Pro',
       description: 'Ideal para empresas en crecimiento',
-      price: '$340,000',
+      price: '$50,000',
       period: '/mes',
       features: [
-        'Hasta 10,000 mensajes/mes',
-        'Plantillas personalizadas',
+        'Hasta 500 mensajes/mes',
+        'Todas las plantillas incluidas',
         'Eliminación automática',
         'Soporte prioritario',
-        'Estadísticas básicas'
+        'Estadísticas avanzadas'
       ],
       cta: 'Comenzar Prueba',
       popular: true
     },
     {
-      name: 'Plan Empresarial',
+      name: 'Plan Enterprise',
       description: 'Para organizaciones grandes',
-      price: '$850,000',
+      price: '$100,000',
       period: '/mes',
       features: [
-        'Mensajes ilimitados',
-        'Plantillas personalizadas',
+        'Hasta 2,000 mensajes/mes',
+        'Plantillas personalizadas ilimitadas',
         'Eliminación automática',
         'Soporte 24/7',
         'Estadísticas avanzadas',
-        'API personalizada'
+        'API de integración'
       ],
       cta: 'Contactar Ventas',
       popular: false
