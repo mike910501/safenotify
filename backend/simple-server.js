@@ -25,8 +25,10 @@ const PORT = process.env.PORT || 3005;
 // JWT utilities
 const generateToken = (userId) => {
   const secret = process.env.JWT_SECRET || 'fallback-secret';
+  console.log('🔑 Generate Token - JWT_SECRET env value:', process.env.JWT_SECRET);
   console.log('🔑 Generate Token - JWT_SECRET exists:', !!process.env.JWT_SECRET);
   console.log('🔑 Generate Token - Using secret:', secret.substring(0, 10) + '...');
+  console.log('🔑 Generate Token - Full secret first 20 chars:', secret.substring(0, 20));
   return jwt.sign({ userId }, secret, { 
     expiresIn: '7d' 
   });
