@@ -43,7 +43,8 @@ export function CampaignTemplatesSelector({ onSelectTemplate, selectedTemplate }
       const token = localStorage.getItem('token')
       
       // Use the approved endpoint that shows all available templates (user + system)
-      const response = await fetch('http://localhost:3005/api/templates-ai/approved', {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
+      const response = await fetch(`${API_URL}/api/templates-ai/approved`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
