@@ -24,13 +24,19 @@ const PORT = process.env.PORT || 3005;
 
 // JWT utilities
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || 'fallback-secret', { 
+  const secret = process.env.JWT_SECRET || 'fallback-secret';
+  console.log('🔑 Generate Token - JWT_SECRET exists:', !!process.env.JWT_SECRET);
+  console.log('🔑 Generate Token - Using secret:', secret.substring(0, 10) + '...');
+  return jwt.sign({ userId }, secret, { 
     expiresIn: '7d' 
   });
 };
 
 const verifyToken = (token) => {
-  return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+  const secret = process.env.JWT_SECRET || 'fallback-secret';
+  console.log('🔓 Verify Token - JWT_SECRET exists:', !!process.env.JWT_SECRET);
+  console.log('🔓 Verify Token - Using secret:', secret.substring(0, 10) + '...');
+  return jwt.verify(token, secret);
 };
 
 // Middleware - CORS configurado para desarrollo y producción
