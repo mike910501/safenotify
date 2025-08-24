@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("user") // user, admin, super_admin
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Subscription info
+  planType     String   @default("free") // free, basic, pro, enterprise
+  planExpiry   DateTime?
+  messagesUsed Int      @default(0)
+  messagesLimit Int     @default(10) // free plan limit
+  
+  // Relations
+  campaigns Campaign[]
+  templates Template[]
+  payments  Payment[]
+  apiKeys   ApiKey[]
+  
+  @@map("users")
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  templateId  String?
+  status      String   @default("draft") // draft, sending, completed, failed
+  totalContacts Int    @default(0)
+  sentCount     Int    @default(0)
+  errorCount    Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sentAt      DateTime?
+  
+  // Relations
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template Template? @relation(fields: [templateId], references: [id])
+  messages MessageLog[]
+  
+  @@map("campaigns")
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  content     String
+  category    String   @default("general")
+  variables   String[] // Array of required variables
+  
+  // Estados del workflow real
+  status      String   @default("ai_pending") // ai_pending, pending, approved, rejected, active
+  isPublic    Boolean  @default(false)
+  
+  // Datos de validación IA
+  aiApproved  Boolean  @default(false)
+  aiScore     Int?
+  aiReasons   String[]
+  aiSuggestions String[]
+  
+  // Datos de Twilio cuando está activo
+  twilioTemplateId String? // Template ID de Twilio/WhatsApp
+  twilioSid        String?
+  
+  // Admin approval data
+  adminReviewedBy String? // ID del admin que revisó
+  adminReviewedAt DateTime?
+  adminNotes      String?
+  
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userId    String?
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+  
+  @@map("templates")
+}
+
+model MessageLog {
+  id          String   @id @default(cuid())
+  phone       String
+  status      String   // sent, delivered, failed, read
+  messageSid  String?  // Twilio message SID
+  error       String?
+  sentAt      DateTime @default(now())
+  deliveredAt DateTime?
+  readAt      DateTime?
+  
+  // Relations
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@map("message_logs")
+}
+
+model Payment {
+  id               String   @id @default(cuid())
+  reference        String   @unique
+  amount           Float
+  currency         String   @default("COP")
+  status           String   // pending, completed, failed, refunded
+  wompiTransactionId String? @unique
+  planType         String   // basic, pro, enterprise
+  processedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("payments")
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  lastUsed  DateTime?
+  
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("api_keys")
+}
