@@ -16,6 +16,7 @@ import { TemplatePreview } from '@/components/templates/template-preview'
 import { AIAssistant } from '@/components/templates/ai-assistant'
 import { CustomTemplateService } from '@/components/templates/custom-template-service'
 import { UpgradeCta } from '@/components/ui/upgrade-cta'
+import { LimitExceededModal } from '@/components/ui/limit-exceeded-modal'
 import { useAuth } from '@/hooks/useAuth'
 
 type Step = 'upload' | 'template' | 'review' | 'sending'
@@ -62,6 +63,8 @@ export default function SendMessagesPage() {
   const [showCustomTemplateService, setShowCustomTemplateService] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [campaignResult, setCampaignResult] = useState<any>(null)
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [limitDetails, setLimitDetails] = useState<any>(null)
   
   // Debug: Log key state changes
   console.log('Send Page State:', {
@@ -151,15 +154,20 @@ export default function SendMessagesPage() {
         body: formData
       })
       
-      if (!createResponse.ok) {
-        throw new Error(`HTTP error! status: ${createResponse.status}`)
-      }
-      
       const createResult = await createResponse.json()
-      console.log('✅ Campaign created:', createResult)
+      console.log('📝 Campaign creation response:', createResult)
       
-      if (!createResult.success) {
-        throw new Error(createResult.error || 'Error creating campaign')
+      if (!createResponse.ok || !createResult.success) {
+        // Manejo especial para límites excedidos
+        if (createResponse.status === 403 && createResult.details) {
+          const details = createResult.details
+          setLimitDetails(details)
+          setShowLimitModal(true)
+          setIsLoading(false)
+          return // No throw error, solo mostrar modal
+        }
+        
+        throw new Error(createResult.error || `Error creating campaign (${createResponse.status})`)
       }
       
       const campaignId = createResult.campaign.id
@@ -690,6 +698,16 @@ export default function SendMessagesPage() {
           alert('Solicitud de plantilla personalizada enviada. Nos contactaremos pronto.')
         }}
         availableColumns={availableColumns.map(col => col.mapped)}
+      />
+
+      {/* Limit Exceeded Modal */}
+      <LimitExceededModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        planType={user?.planType || 'free'}
+        messagesUsed={user?.messagesUsed || 0}
+        messagesLimit={user?.messagesLimit || 10}
+        messagesRequired={limitDetails?.required || 0}
       />
     </div>
   )

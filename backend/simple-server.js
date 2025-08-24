@@ -1347,6 +1347,83 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       });
     }
 
+    // VALIDACIÓN DE LÍMITES: Primero leemos el CSV para contar contactos
+    console.log('🔍 INICIANDO VALIDACIÓN DE LÍMITES');
+    const fs = require('fs');
+    let totalContactsToSend = 0;
+    
+    try {
+      const csvContent = fs.readFileSync(csvFile.path, 'utf8');
+      const csvLines = csvContent.split('\n').filter(line => line.trim());
+      const headers = csvLines[0].split(',').map(h => h.trim());
+      
+      // Contar contactos válidos (que tengan teléfono)
+      for (let i = 1; i < csvLines.length; i++) {
+        const values = csvLines[i].split(',').map(v => v.trim());
+        const contact = {};
+        headers.forEach((header, index) => {
+          contact[header] = values[index] || '';
+        });
+        
+        if (contact.telefono || contact.phone) {
+          totalContactsToSend++;
+        }
+      }
+    } catch (error) {
+      console.error('Error reading CSV for validation:', error);
+      return res.status(400).json({
+        success: false,
+        error: 'Error al procesar archivo CSV'
+      });
+    }
+
+    console.log(`📊 Total contacts to send: ${totalContactsToSend}`);
+
+    // Obtener datos actuales del usuario
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        messagesUsed: true,
+        messagesLimit: true,
+        planType: true
+      }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    const messagesAvailable = currentUser.messagesLimit - currentUser.messagesUsed;
+    
+    console.log(`📋 Plan validation:`, {
+      planType: currentUser.planType,
+      messagesUsed: currentUser.messagesUsed,
+      messagesLimit: currentUser.messagesLimit,
+      messagesAvailable: messagesAvailable,
+      contactsToSend: totalContactsToSend
+    });
+
+    // VALIDAR LÍMITES
+    if (totalContactsToSend > messagesAvailable) {
+      console.log('🚫 LÍMITE EXCEDIDO - BLOQUEANDO ENVÍO');
+      return res.status(403).json({
+        success: false,
+        error: 'Límite de mensajes excedido',
+        details: {
+          required: totalContactsToSend,
+          available: messagesAvailable,
+          planType: currentUser.planType,
+          messagesUsed: currentUser.messagesUsed,
+          messagesLimit: currentUser.messagesLimit
+        }
+      });
+    }
+    
+    console.log('✅ VALIDACIÓN PASADA - CONTINUANDO CON ENVÍO');
+
     if (!templateSid) {
       return res.status(400).json({
         success: false,
@@ -1387,8 +1464,8 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
     const sendResults = [];
     
     if (csvFile && csvFile.path) {
-      const fs = require('fs');
       try {
+        // Re-read CSV for processing (we already validated it above)
         const csvContent = fs.readFileSync(csvFile.path, 'utf8');
         console.log('📄 CSV file read for immediate processing');
         
@@ -1527,6 +1604,20 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
           error: 'Error al procesar el archivo CSV'
         });
       }
+    }
+
+    // ACTUALIZAR CONTADOR DE MENSAJES USADOS
+    if (sentCount > 0) {
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          messagesUsed: {
+            increment: sentCount
+          }
+        }
+      });
+      
+      console.log(`📈 Updated user message count: +${sentCount} messages used`);
     }
 
     // Create campaign record with final results
