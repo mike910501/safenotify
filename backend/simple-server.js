@@ -2055,12 +2055,24 @@ app.delete('/api/user/delete-account', authenticateToken, async (req, res) => {
   }
 });
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT}`);
   console.log(`📖 API Documentation: http://localhost:${PORT}/api`);
   console.log(`💚 Health Check: http://localhost:${PORT}/health`);
   console.log(`📋 Templates: http://localhost:${PORT}/api/templates`);
   console.log(`💰 Payments: http://localhost:${PORT}/api/payments`);
+  
+  // Check if templates exist
+  try {
+    const templateCount = await prisma.template.count();
+    console.log(`📊 Templates in database: ${templateCount}`);
+    
+    if (templateCount === 0) {
+      console.log('⚠️ No templates found. Consider running seed script.');
+    }
+  } catch (error) {
+    console.error('Error checking templates:', error.message);
+  }
 });
 
 // Graceful shutdown
