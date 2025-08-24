@@ -41,7 +41,8 @@ export function UserTemplatesLibrary({ onSelectTemplate, selectedTemplate }: Use
       setLoading(true)
       const token = localStorage.getItem('token')
       
-      const response = await fetch('http://localhost:3005/api/templates-ai/my-templates', {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
+      const response = await fetch(`${API_URL}/api/templates-ai/my-templates`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
