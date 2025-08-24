@@ -34,8 +34,10 @@ const generateToken = (userId) => {
 
 const verifyToken = (token) => {
   const secret = process.env.JWT_SECRET || 'fallback-secret';
+  console.log('🔓 Verify Token - JWT_SECRET env value:', process.env.JWT_SECRET);
   console.log('🔓 Verify Token - JWT_SECRET exists:', !!process.env.JWT_SECRET);
   console.log('🔓 Verify Token - Using secret:', secret.substring(0, 10) + '...');
+  console.log('🔓 Verify Token - Full secret first 20 chars:', secret.substring(0, 20));
   return jwt.verify(token, secret);
 };
 
