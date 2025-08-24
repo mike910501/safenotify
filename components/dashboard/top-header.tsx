@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search, Bell, ChevronDown, User, Settings, LogOut, ChevronRight, MessageSquare, CreditCard } from 'lucide-react'
+import { 
+  Search, Bell, ChevronDown, User, Settings, LogOut, ChevronRight, 
+  MessageSquare, CreditCard, CheckCircle, XCircle, AlertTriangle, 
+  FileText, DollarSign, Activity
+} from 'lucide-react'
 import { AnimatedIcon } from '@/components/ui/animated-icon'
 
 interface TopHeaderProps {
@@ -13,11 +17,23 @@ interface UserData {
   name: string
   email: string
   planType: string
+  messagesUsed?: number
+  messagesLimit?: number
+}
+
+interface Notification {
+  id: string
+  title: string
+  message: string
+  type: 'template_approved' | 'template_rejected' | 'template_submitted' | 'payment_success' | 'messages_low' | 'plan_expiring'
+  read: boolean
+  createdAt: string
 }
 
 export function TopHeader({ userName: propUserName }: TopHeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false)
-  const [hasNotifications, setHasNotifications] = useState(true)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [userData, setUserData] = useState<UserData | null>(null)
   const pathname = usePathname()
   const router = useRouter()
@@ -33,7 +49,90 @@ export function TopHeader({ userName: propUserName }: TopHeaderProps) {
         console.error('Error parsing user data:', error)
       }
     }
+    
+    // Load notifications
+    loadNotifications()
   }, [])
+
+  const loadNotifications = async () => {
+    try {
+      // TODO: Aquí iría la llamada real a la API cuando se implemente
+      // const response = await fetch('/api/notifications', {
+      //   headers: { 'Authorization': `Bearer ${token}` }
+      // })
+      // const data = await response.json()
+      // setNotifications(data.notifications || [])
+      
+      // Por ahora, no hay notificaciones
+      setNotifications([])
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+      setNotifications([])
+    }
+  }
+
+  const markAllAsRead = async () => {
+    setNotifications(prev => prev.map(notif => ({ ...notif, read: true })))
+    // Aquí iría la llamada a la API para marcar como leídas
+  }
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read) {
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === notification.id ? { ...notif, read: true } : notif
+        )
+      )
+    }
+    
+    // Redirigir según el tipo de notificación
+    setShowNotifications(false)
+    switch (notification.type) {
+      case 'template_approved':
+      case 'template_rejected':
+      case 'template_submitted':
+        router.push('/dashboard/templates')
+        break
+      case 'payment_success':
+        router.push('/dashboard/upgrade')
+        break
+      case 'messages_low':
+        router.push('/dashboard/upgrade')
+        break
+      default:
+        break
+    }
+  }
+
+  const getNotificationIcon = (type: Notification['type']) => {
+    switch (type) {
+      case 'template_approved':
+        return <CheckCircle className="w-4 h-4 text-green-600" />
+      case 'template_rejected':
+        return <XCircle className="w-4 h-4 text-red-600" />
+      case 'template_submitted':
+        return <FileText className="w-4 h-4 text-blue-600" />
+      case 'payment_success':
+        return <DollarSign className="w-4 h-4 text-purple-600" />
+      case 'messages_low':
+        return <AlertTriangle className="w-4 h-4 text-yellow-600" />
+      case 'plan_expiring':
+        return <Activity className="w-4 h-4 text-orange-600" />
+      default:
+        return <Bell className="w-4 h-4 text-gray-600" />
+    }
+  }
+
+  const formatNotificationTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    
+    if (diffInMinutes < 1) return 'Hace un momento'
+    if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`
+    if (diffInMinutes < 1440) return `Hace ${Math.floor(diffInMinutes / 60)} h`
+    return `Hace ${Math.floor(diffInMinutes / 1440)} días`
+  }
 
   const userName = userData?.name || propUserName || 'Usuario'
 
@@ -144,19 +243,124 @@ export function TopHeader({ userName: propUserName }: TopHeaderProps) {
           </div>
 
           {/* Notification Bell */}
-          <button
-            className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
-            aria-label="Notificaciones"
-          >
-            <AnimatedIcon
-              icon={Bell}
-              size={20}
-              className="text-gray-600 group-hover:text-gray-900 transition-colors"
-            />
-            {hasNotifications && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 group"
+              aria-label="Notificaciones"
+            >
+              <AnimatedIcon
+                icon={Bell}
+                size={20}
+                className="text-gray-600 group-hover:text-gray-900 transition-colors"
+              />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              )}
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                  {notifications.filter(n => !n.read).length > 9 ? '9+' : notifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </button>
+
+            {/* Notifications Dropdown */}
+            {showNotifications && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowNotifications(false)}
+                />
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 animate-fade-in-down max-h-96 overflow-hidden">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Notificaciones
+                      </h3>
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                          Marcar todo como leído
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notifications List */}
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
+                            !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                          }`}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              notification.type === 'template_approved' ? 'bg-green-100' :
+                              notification.type === 'template_rejected' ? 'bg-red-100' :
+                              notification.type === 'template_submitted' ? 'bg-blue-100' :
+                              notification.type === 'payment_success' ? 'bg-purple-100' :
+                              notification.type === 'messages_low' ? 'bg-yellow-100' :
+                              'bg-gray-100'
+                            }`}>
+                              {getNotificationIcon(notification.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium ${
+                                !notification.read ? 'text-gray-900' : 'text-gray-600'
+                              }`}>
+                                {notification.title}
+                              </p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-2">
+                                {formatNotificationTime(notification.createdAt)}
+                              </p>
+                            </div>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-8 text-center">
+                        <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500 font-medium mb-1">
+                          No tienes notificaciones
+                        </p>
+                        <p className="text-gray-400 text-sm">
+                          Te notificaremos sobre plantillas y campañas aquí
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  {notifications.length > 0 && (
+                    <div className="px-4 py-3 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          setShowNotifications(false)
+                          router.push('/dashboard/notifications')
+                        }}
+                        className="w-full text-center text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        Ver todas las notificaciones
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-          </button>
+          </div>
 
           {/* User Dropdown */}
           <div className="relative">

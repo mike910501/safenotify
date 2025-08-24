@@ -33,9 +33,23 @@ const verifyToken = (token) => {
   return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
 };
 
-// Middleware
+// Middleware - CORS configurado para desarrollo y producción
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+  origin: [
+    // Desarrollo - todos los puertos locales comunes
+    'http://localhost:3000',
+    'http://localhost:3001', 
+    'http://localhost:3002',
+    'http://localhost:3003',
+    'http://localhost:3004',
+    'http://localhost:3005',
+    // Producción - Render y dominios custom
+    process.env.FRONTEND_URL,
+    // Cualquier subdominio de onrender.com para Render
+    /^https:\/\/.*\.onrender\.com$/,
+    // Dominios de producción adicionales si los hay
+    process.env.PRODUCTION_DOMAIN
+  ].filter(Boolean), // Filtra valores undefined/null
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
@@ -1736,6 +1750,82 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
+// Update user profile and password endpoint
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, currentPassword, newPassword } = req.body;
+
+    console.log('🔧 Profile update request for user:', userId);
+    console.log('📋 Fields to update:', { name: !!name, passwordChange: !!currentPassword });
+
+    // Get current user data
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    let updateData = {};
+
+    // Update basic profile fields
+    if (name !== undefined) updateData.name = name;
+
+    // Handle password change
+    if (currentPassword && newPassword) {
+      console.log('🔑 Processing password change...');
+      
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Contraseña actual incorrecta'
+        });
+      }
+
+      // Hash new password
+      const saltRounds = 10;
+      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+      updateData.password = hashedNewPassword;
+      
+      console.log('✅ Password updated successfully');
+    }
+
+    // Update user in database
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        updatedAt: true
+      }
+    });
+
+    console.log('✅ Profile updated successfully for user:', userId);
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado exitosamente',
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
 // Graceful shutdown for Prisma
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
@@ -1743,6 +1833,124 @@ process.on('beforeExit', async () => {
 
 // Mount payment routes
 app.use('/api/payments', paymentRoutes);
+
+// Export user data endpoint
+app.get('/api/user/export-data', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Obtener datos del usuario
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        planType: true,
+        messagesUsed: true,
+        messagesLimit: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    // Obtener plantillas del usuario
+    const templates = await prisma.template.findMany({
+      where: { userId: userId },
+      select: {
+        id: true,
+        name: true,
+        content: true,
+        category: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    // Obtener pagos del usuario
+    const payments = await prisma.payment.findMany({
+      where: { userId: userId },
+      select: {
+        id: true,
+        reference: true,
+        amount: true,
+        currency: true,
+        status: true,
+        planType: true,
+        createdAt: true
+      }
+    });
+
+    // Preparar datos para exportación
+    const exportData = {
+      user: user,
+      templates: templates,
+      payments: payments,
+      exportedAt: new Date().toISOString(),
+      version: '1.0.0'
+    };
+
+    res.json({
+      success: true,
+      data: exportData
+    });
+
+  } catch (error) {
+    console.error('❌ Error exporting user data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+// Delete user account endpoint
+app.delete('/api/user/delete-account', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log(`🗑️ Deleting account for user: ${userId}`);
+
+    // Eliminar en orden para evitar conflictos de foreign keys
+    await prisma.$transaction(async (tx) => {
+      // 1. Eliminar pagos
+      await tx.payment.deleteMany({
+        where: { userId: userId }
+      });
+
+      // 2. Eliminar plantillas
+      await tx.template.deleteMany({
+        where: { userId: userId }
+      });
+
+      // 3. Eliminar usuario
+      await tx.user.delete({
+        where: { id: userId }
+      });
+    });
+
+    console.log(`✅ Account deleted successfully for user: ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Cuenta eliminada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting account:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT}`);

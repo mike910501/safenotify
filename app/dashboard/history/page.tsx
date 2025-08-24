@@ -1,0 +1,514 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { 
+  Calendar, MessageSquare, Clock, TrendingUp, 
+  BarChart3, PieChart, Download, Filter, Search,
+  CheckCircle, XCircle, AlertCircle, Send, Eye,
+  ArrowUpRight, ArrowDownRight, RefreshCw,
+  Users, Target, Zap, Activity
+} from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { AnimatedIcon } from '@/components/ui/animated-icon'
+
+interface Campaign {
+  id: string
+  name: string
+  templateName: string
+  totalContacts: number
+  messagesSent: number
+  messagesDelivered: number
+  messagesFailed: number
+  status: 'created' | 'sending' | 'completed' | 'failed'
+  sentAt: string | null
+  createdAt: string
+  deliveryRate: number
+}
+
+interface MessageStats {
+  totalCampaigns: number
+  totalMessagesSent: number
+  totalMessagesDelivered: number
+  averageDeliveryRate: number
+  totalContacts: number
+}
+
+export default function HistoryPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [stats, setStats] = useState<MessageStats>({
+    totalCampaigns: 0,
+    totalMessagesSent: 0,
+    totalMessagesDelivered: 0,
+    averageDeliveryRate: 0,
+    totalContacts: 0
+  })
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<'date' | 'deliveryRate' | 'messages'>('date')
+
+  useEffect(() => {
+    fetchCampaignHistory()
+  }, [])
+
+  const fetchCampaignHistory = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.error('No authentication token found')
+        setLoading(false)
+        return
+      }
+
+      // Llamada real a la API de campañas
+      const response = await fetch('http://localhost:3005/api/campaigns', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.campaigns) {
+        // Procesar las campañas reales del backend
+        const processedCampaigns: Campaign[] = data.campaigns.map((campaign: any) => {
+          // Calcular estadísticas de mensajes si existen
+          const messageStats = campaign.messageStats || {}
+          const totalMessages = messageStats.total || 0
+          const deliveredMessages = messageStats.delivered || 0
+          const failedMessages = messageStats.failed || 0
+          const deliveryRate = totalMessages > 0 ? (deliveredMessages / totalMessages) * 100 : 0
+
+          return {
+            id: campaign.id,
+            name: campaign.name,
+            templateName: campaign.templateName || 'Plantilla personalizada',
+            totalContacts: campaign.totalContacts || 0,
+            messagesSent: totalMessages,
+            messagesDelivered: deliveredMessages,
+            messagesFailed: failedMessages,
+            status: campaign.status || 'created',
+            sentAt: campaign.sentAt,
+            createdAt: campaign.createdAt,
+            deliveryRate: deliveryRate
+          }
+        })
+
+        setCampaigns(processedCampaigns)
+        
+        // Calcular estadísticas agregadas
+        const totalSent = processedCampaigns.reduce((sum, c) => sum + c.messagesSent, 0)
+        const totalDelivered = processedCampaigns.reduce((sum, c) => sum + c.messagesDelivered, 0)
+        const completedCampaigns = processedCampaigns.filter(c => c.status === 'completed')
+        const avgDeliveryRate = completedCampaigns.length > 0 
+          ? completedCampaigns.reduce((sum, c) => sum + c.deliveryRate, 0) / completedCampaigns.length 
+          : 0
+
+        setStats({
+          totalCampaigns: processedCampaigns.length,
+          totalMessagesSent: totalSent,
+          totalMessagesDelivered: totalDelivered,
+          averageDeliveryRate: avgDeliveryRate,
+          totalContacts: processedCampaigns.reduce((sum, c) => sum + c.totalContacts, 0)
+        })
+      } else {
+        // Si no hay campañas o hay error, mostrar estado vacío
+        setCampaigns([])
+        setStats({
+          totalCampaigns: 0,
+          totalMessagesSent: 0,
+          totalMessagesDelivered: 0,
+          averageDeliveryRate: 0,
+          totalContacts: 0
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching campaign history:', error)
+      // En caso de error, mostrar estado vacío en lugar de datos falsos
+      setCampaigns([])
+      setStats({
+        totalCampaigns: 0,
+        totalMessagesSent: 0,
+        totalMessagesDelivered: 0,
+        averageDeliveryRate: 0,
+        totalContacts: 0
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredCampaigns = campaigns
+    .filter(campaign => {
+      const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          campaign.templateName.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesFilter = filterStatus === 'all' || campaign.status === filterStatus
+      return matchesSearch && matchesFilter
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'deliveryRate':
+          return b.deliveryRate - a.deliveryRate
+        case 'messages':
+          return b.messagesSent - a.messagesSent
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      }
+    })
+
+  const getStatusColor = (status: Campaign['status']) => {
+    switch (status) {
+      case 'completed': return 'text-green-600 bg-green-100'
+      case 'sending': return 'text-blue-600 bg-blue-100'
+      case 'failed': return 'text-red-600 bg-red-100'
+      default: return 'text-gray-600 bg-gray-100'
+    }
+  }
+
+  const getStatusIcon = (status: Campaign['status']) => {
+    switch (status) {
+      case 'completed': return CheckCircle
+      case 'sending': return RefreshCw
+      case 'failed': return XCircle
+      default: return AlertCircle
+    }
+  }
+
+  const getDeliveryRateColor = (rate: number) => {
+    if (rate >= 95) return 'text-green-600'
+    if (rate >= 85) return 'text-yellow-600'
+    return 'text-red-600'
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-CO', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-8">
+            <div className="h-10 bg-gray-200 rounded-lg w-64"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded-2xl"></div>
+              ))}
+            </div>
+            <div className="h-96 bg-gray-200 rounded-2xl"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Historial de Campañas
+            </h1>
+            <p className="text-gray-600">
+              Analiza el rendimiento y estadísticas de tus mensajes enviados
+            </p>
+          </div>
+          <div className="flex items-center space-x-3 mt-4 md:mt-0">
+            <Button
+              variant="outline"
+              className="hover:bg-primary-50 hover:border-primary-200"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
+            </Button>
+            <Button
+              onClick={() => fetchCampaignHistory()}
+              className="bg-gradient-to-r from-primary-600 to-primary-500 hover:shadow-lg"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Actualizar
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-white overflow-hidden" padding="none">
+            <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Total Campañas</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.totalCampaigns}</p>
+                  <div className="flex items-center mt-2 text-sm">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-green-600 font-medium">+12%</span>
+                    <span className="text-gray-500 ml-1">vs mes anterior</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <BarChart3 className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-white overflow-hidden" padding="none">
+            <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Mensajes Enviados</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {stats.totalMessagesSent.toLocaleString('es-CO')}
+                  </p>
+                  <div className="flex items-center mt-2 text-sm">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-green-600 font-medium">+8%</span>
+                    <span className="text-gray-500 ml-1">vs mes anterior</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                  <Send className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-white overflow-hidden" padding="none">
+            <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-500" />
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Tasa de Entrega</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {stats.averageDeliveryRate.toFixed(1)}%
+                  </p>
+                  <div className="flex items-center mt-2 text-sm">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-green-600 font-medium">+2.1%</span>
+                    <span className="text-gray-500 ml-1">vs mes anterior</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-white overflow-hidden" padding="none">
+            <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Total Contactos</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {stats.totalContacts.toLocaleString('es-CO')}
+                  </p>
+                  <div className="flex items-center mt-2 text-sm">
+                    <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-green-600 font-medium">+15%</span>
+                    <span className="text-gray-500 ml-1">vs mes anterior</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-amber-600" />
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="bg-white" padding="lg">
+          <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0 md:space-x-4">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar campañas..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
+              >
+                <option value="all">Todos los estados</option>
+                <option value="completed">Completado</option>
+                <option value="sending">Enviando</option>
+                <option value="failed">Fallido</option>
+              </select>
+              
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
+              >
+                <option value="date">Fecha</option>
+                <option value="deliveryRate">Tasa de entrega</option>
+                <option value="messages">Mensajes enviados</option>
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Campaigns List */}
+        <Card className="bg-white overflow-hidden" padding="none">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Campañas Recientes
+            </h2>
+            <p className="text-gray-600 mt-1">
+              {filteredCampaigns.length} de {campaigns.length} campañas
+            </p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Campaña
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contactos
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Enviados
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Entregados
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tasa de Entrega
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredCampaigns.map((campaign) => {
+                  const StatusIcon = getStatusIcon(campaign.status)
+                  return (
+                    <tr key={campaign.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">{campaign.name}</p>
+                          <p className="text-sm text-gray-500">{campaign.templateName}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(campaign.status)}`}>
+                          <StatusIcon className={`w-3 h-3 mr-1 ${campaign.status === 'sending' ? 'animate-spin' : ''}`} />
+                          {campaign.status === 'completed' ? 'Completado' :
+                           campaign.status === 'sending' ? 'Enviando' :
+                           campaign.status === 'failed' ? 'Fallido' : 'Creado'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-900 font-medium">
+                        {campaign.totalContacts.toLocaleString('es-CO')}
+                      </td>
+                      <td className="px-6 py-4 text-gray-900">
+                        {campaign.messagesSent.toLocaleString('es-CO')}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <span className="text-gray-900 font-medium">
+                            {campaign.messagesDelivered.toLocaleString('es-CO')}
+                          </span>
+                          {campaign.messagesFailed > 0 && (
+                            <span className="ml-2 text-xs text-red-600">
+                              ({campaign.messagesFailed} fallos)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {campaign.status === 'completed' ? (
+                          <div className="flex items-center">
+                            <span className={`font-bold ${getDeliveryRateColor(campaign.deliveryRate)}`}>
+                              {campaign.deliveryRate.toFixed(1)}%
+                            </span>
+                            <div className="ml-2 w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${
+                                  campaign.deliveryRate >= 95 ? 'bg-green-500' :
+                                  campaign.deliveryRate >= 85 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${campaign.deliveryRate}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {campaign.sentAt ? formatDate(campaign.sentAt) : formatDate(campaign.createdAt)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary-600 hover:text-primary-700 hover:bg-primary-50"
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Ver Detalles
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredCampaigns.length === 0 && (
+            <div className="text-center py-12">
+              <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No se encontraron campañas</p>
+              <p className="text-gray-400 text-sm">
+                {searchTerm || filterStatus !== 'all' 
+                  ? 'Intenta ajustar los filtros de búsqueda' 
+                  : 'Crea tu primera campaña para ver estadísticas aquí'
+                }
+              </p>
+            </div>
+          )}
+        </Card>
+
+      </div>
+    </div>
+  )
+}

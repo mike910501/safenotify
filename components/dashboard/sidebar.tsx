@@ -169,6 +169,11 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
         
         {/* Logout Button */}
         <button
+          onClick={() => {
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            window.location.href = '/login'
+          }}
           className={`mt-4 w-full flex items-center justify-center px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors duration-200 group ${
             isCollapsed ? 'px-2' : ''
           }`}
