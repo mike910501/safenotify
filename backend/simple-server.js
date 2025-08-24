@@ -139,6 +139,8 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     
     console.log('🔑 Login attempt for:', email);
+    console.log('🚀 LOGIN - JWT_SECRET from env:', process.env.JWT_SECRET);
+    console.log('🚀 LOGIN - Will use secret for token:', (process.env.JWT_SECRET || 'fallback-secret').substring(0, 20));
     
     // Validación básica
     if (!email || !password) {
