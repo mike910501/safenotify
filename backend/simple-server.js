@@ -546,7 +546,7 @@ app.get('/api/templates-ai', authenticateToken, async (req, res) => {
 });
 
 // Import the new validation function
-const validateTemplateWithAI = require('./validate-endpoint');
+const validateTemplateWithAI = require('./validate-endpoint.js');
 
 // Template validation with AI
 app.post('/api/templates-ai/validate', authenticateToken, validateTemplateWithAI);
