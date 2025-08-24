@@ -39,7 +39,8 @@ export function useAuth() {
         return false
       }
 
-      const response = await fetch('http://localhost:3005/api/auth/me', {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
+      const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -83,7 +84,8 @@ export function useAuth() {
     setAuthState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const response = await fetch('http://localhost:3005/api/auth/login', {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -129,7 +131,8 @@ export function useAuth() {
     setAuthState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const response = await fetch('http://localhost:3005/api/auth/register', {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
