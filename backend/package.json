@@ -2,10 +2,10 @@
   "name": "safenotify-backend",
   "version": "1.0.0",
   "description": "Secure WhatsApp Business API backend for SafeNotify",
-  "main": "server.js",
+  "main": "simple-server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node simple-server.js",
+    "dev": "nodemon simple-server.js",
     "test": "jest"
   },
   "dependencies": {
