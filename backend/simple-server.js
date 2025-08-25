@@ -1007,6 +1007,156 @@ app.get('/api/templates-ai/stats/user', authenticateToken, async (req, res) => {
   }
 });
 
+// UPDATE template endpoint - was missing!
+app.put('/api/templates-ai/:id', authenticateToken, async (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const { name, content, category, variables } = req.body;
+
+    // Verify that the template belongs to the user
+    const existingTemplate = await prisma.template.findFirst({
+      where: {
+        id: templateId,
+        userId: req.user.id
+      }
+    });
+
+    if (!existingTemplate) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template no encontrada'
+      });
+    }
+
+    // Update template
+    const updatedTemplate = await prisma.template.update({
+      where: { id: templateId },
+      data: {
+        ...(name && { name }),
+        ...(content && { content }),
+        ...(category && { category }),
+        ...(variables && { variables }),
+        // If content is modified, requires new approval
+        ...(content && content !== existingTemplate.content && { 
+          status: 'pending',
+          aiApproved: false 
+        })
+      }
+    });
+
+    console.log(`✅ Template actualizada: ${updatedTemplate.name}`);
+
+    res.json({
+      success: true,
+      template: updatedTemplate,
+      message: content && content !== existingTemplate.content 
+        ? 'Template actualizada - requiere nueva validación IA' 
+        : 'Template actualizada'
+    });
+
+  } catch (error) {
+    console.error('Error actualizando template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+// GET specific template endpoint
+app.get('/api/templates-ai/:id', authenticateToken, async (req, res) => {
+  try {
+    const templateId = req.params.id;
+
+    const template = await prisma.template.findFirst({
+      where: {
+        id: templateId,
+        OR: [
+          { userId: req.user.id },
+          { isPublic: true }
+        ]
+      }
+    });
+
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template no encontrada'
+      });
+    }
+
+    res.json({
+      success: true,
+      template: template
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+// DELETE template endpoint - was missing!
+app.delete('/api/templates-ai/:id', authenticateToken, async (req, res) => {
+  try {
+    const templateId = req.params.id;
+
+    // Verify that the template belongs to the user
+    const existingTemplate = await prisma.template.findFirst({
+      where: {
+        id: templateId,
+        userId: req.user.id
+      }
+    });
+
+    if (!existingTemplate) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template no encontrada'
+      });
+    }
+
+    // Check if template is being used in active campaigns
+    const activeCampaigns = await prisma.campaign.findMany({
+      where: {
+        templateId: templateId,
+        status: {
+          in: ['draft', 'sending']
+        }
+      }
+    });
+
+    if (activeCampaigns.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se puede eliminar una template que está siendo usada en campañas activas'
+      });
+    }
+
+    // Delete template
+    await prisma.template.delete({
+      where: { id: templateId }
+    });
+
+    console.log(`🗑️ Template eliminada: ${existingTemplate.name}`);
+
+    res.json({
+      success: true,
+      message: 'Template eliminada correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
 // Admin endpoints
 const requireAdmin = async (req, res, next) => {
   try {
