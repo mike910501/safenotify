@@ -2484,7 +2484,7 @@ app.delete('/api/user/delete-account', authenticateToken, async (req, res) => {
 });
 
 const server = app.listen(PORT, async () => {
-  console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT}`);
+  console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT} - Password recovery ready`);
   console.log(`📖 API Documentation: http://localhost:${PORT}/api`);
   console.log(`💚 Health Check: http://localhost:${PORT}/health`);
   console.log(`📋 Templates: http://localhost:${PORT}/api/templates`);
