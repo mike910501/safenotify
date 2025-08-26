@@ -48,7 +48,7 @@ const verifyToken = (token) => {
 
 // Email configuration for Zoho
 const createEmailTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: 'smtp.zoho.com',
     port: 587,
     secure: false,
