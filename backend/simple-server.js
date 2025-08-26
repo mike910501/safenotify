@@ -2087,6 +2087,72 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
 
     console.log('🔧 Profile update request for user:', userId);
     console.log('📋 Fields to update:', { name: !!name, passwordChange: !!currentPassword });
+    // Get current user data
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    let updateData = {};
+
+    // Update basic profile fields
+    if (name !== undefined) updateData.name = name;
+
+    // Handle password change
+    if (currentPassword && newPassword) {
+      console.log('🔑 Processing password change...');
+      
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Contraseña actual incorrecta'
+        });
+      }
+
+      // Hash new password
+      const saltRounds = 10;
+      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+      updateData.password = hashedNewPassword;
+      
+      console.log('✅ Password updated successfully');
+    }
+
+    // Update user in database
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        updatedAt: true
+      }
+    });
+
+    console.log('✅ Profile updated successfully for user:', userId);
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado exitosamente',
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
 
 // Password Reset - Request reset
 console.log('🔥 DEBUG: Registering forgot-password endpoint');
@@ -2289,74 +2355,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error actualizando la contraseña'
-    });
-  }
-});
-
-
-    // Get current user data
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'Usuario no encontrado'
-      });
-    }
-
-    let updateData = {};
-
-    // Update basic profile fields
-    if (name !== undefined) updateData.name = name;
-
-    // Handle password change
-    if (currentPassword && newPassword) {
-      console.log('🔑 Processing password change...');
-      
-      // Verify current password
-      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
-      if (!isValidPassword) {
-        return res.status(400).json({
-          success: false,
-          error: 'Contraseña actual incorrecta'
-        });
-      }
-
-      // Hash new password
-      const saltRounds = 10;
-      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-      updateData.password = hashedNewPassword;
-      
-      console.log('✅ Password updated successfully');
-    }
-
-    // Update user in database
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        updatedAt: true
-      }
-    });
-
-    console.log('✅ Profile updated successfully for user:', userId);
-
-    res.json({
-      success: true,
-      message: 'Perfil actualizado exitosamente',
-      user: updatedUser
-    });
-
-  } catch (error) {
-    console.error('❌ Error updating profile:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error interno del servidor'
     });
   }
 });
