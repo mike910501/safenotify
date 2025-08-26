@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
+  // Password recovery system deployed
   const router = useRouter()
   const { isAuthenticated, loading: authLoading, login } = useAuth()
   const [formData, setFormData] = useState({
