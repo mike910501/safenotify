@@ -23,6 +23,7 @@ model User {
   campaigns     Campaign[]
   payments      Payment[]
   templates     Template[]
+  passwordResets PasswordReset[]
 
   @@map("users")
 }
@@ -116,4 +117,17 @@ model ApiKey {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("api_keys")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
 }
