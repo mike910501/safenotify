@@ -2089,7 +2089,9 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     console.log('📋 Fields to update:', { name: !!name, passwordChange: !!currentPassword });
 
 // Password Reset - Request reset
+console.log('🔥 DEBUG: Registering forgot-password endpoint');
 app.post('/api/auth/forgot-password', async (req, res) => {
+  console.log('🔥 DEBUG: forgot-password endpoint HIT!');
   try {
     const { email } = req.body;
     
@@ -2174,7 +2176,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 });
 
-// Password Reset - Verify token
+// Password Reset - Verify token  
+console.log('🔥 DEBUG: Registering reset-password GET endpoint');
 app.get('/api/auth/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -2217,6 +2220,7 @@ app.get('/api/auth/reset-password/:token', async (req, res) => {
 });
 
 // Password Reset - Complete reset
+console.log('🔥 DEBUG: Registering reset-password POST endpoint');
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, password } = req.body;
