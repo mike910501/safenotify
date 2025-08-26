@@ -198,11 +198,14 @@ export default function RegisterPage() {
             <div className="text-xs text-gray-600">
               Al registrarse, acepta nuestros{' '}
               <Link href="/terms" className="text-purple-600 hover:text-purple-700">
-                Términos de Servicio
-              </Link>{' '}
-              y{' '}
+                Términos y Condiciones
+              </Link>,{' '}
               <Link href="/privacy" className="text-purple-600 hover:text-purple-700">
                 Política de Privacidad
+              </Link>{' '}
+              y{' '}
+              <Link href="/data-policy" className="text-purple-600 hover:text-purple-700">
+                Política de Tratamiento de Datos
               </Link>
             </div>
 
