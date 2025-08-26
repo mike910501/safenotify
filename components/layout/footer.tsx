@@ -22,7 +22,7 @@ export function Footer() {
   }
 
   const contact = [
-    { icon: Mail, label: 'Correo', value: 'contacto@safenotify.co', href: 'mailto:contacto@safenotify.co' },
+    { icon: Mail, label: 'Correo', value: 'informacion@safenotify.co', href: 'mailto:informacion@safenotify.co' },
     { icon: Phone, label: 'WhatsApp', value: '+57 300 123 4567', href: 'https://wa.me/573001234567' },
     { icon: MapPin, label: 'Ubicación', value: 'Bogotá, Colombia', href: '#' },
   ]
