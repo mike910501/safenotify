@@ -1811,8 +1811,8 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                       // Variable 1 is always the name
                       templateVariables[varName] = contact.nombre || contact.name || 'Cliente';
                     } else if (varName === '6') {
-                      // Variable 6 is the time/hora
-                      templateVariables[varName] = contact.hora || contact.Hora || contact.time || 'N/A';
+                      // Variable 6 is the time/hora - Check all case variations
+                      templateVariables[varName] = contact.Hora || contact.hora || contact.HORA || contact.time || contact.Time || 'N/A';
                     } else if (contact[varName] !== undefined && contact[varName] !== '') {
                       // Direct mapping if exists
                       templateVariables[varName] = contact[varName];
