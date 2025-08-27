@@ -1806,34 +1806,41 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                   }
 
                   template.variables.forEach(varName => {
-                    // Special handling for numbered variables
-                    if (varName === '1') {
-                      // Variable 1 is always the name
-                      templateVariables[varName] = contact.nombre || contact.name || 'Cliente';
-                    } else if (varName === '6') {
-                      // Variable 6 is the time/hora - Check all case variations
-                      templateVariables[varName] = contact.Hora || contact.hora || contact.HORA || contact.time || contact.Time || 'N/A';
-                    } else if (contact[varName] !== undefined && contact[varName] !== '') {
-                      // Direct mapping if exists
-                      templateVariables[varName] = contact[varName];
-                    } else if (frontendDefaults[varName]) {
-                      // Use frontend default
-                      templateVariables[varName] = frontendDefaults[varName];
-                    } else {
-                      // Fallback defaults
-                      switch(varName) {
-                        case 'nombre':
-                          templateVariables[varName] = contact.nombre || 'Cliente';
-                          break;
-                        case 'negocio':
-                          templateVariables[varName] = 'Tu tienda favorita';
-                          break;
-                        case 'link':
-                          templateVariables[varName] = 'https://ejemplo.com';
-                          break;
-                        default:
+                    // Map variables based on their names
+                    switch(varName) {
+                      case 'nombre':
+                        // Always from CSV
+                        templateVariables[varName] = contact.nombre || contact.Nombre || contact.name || 'Cliente';
+                        break;
+                      case 'hora':
+                        // From CSV if available, otherwise from defaults
+                        templateVariables[varName] = contact.Hora || contact.hora || contact.time || frontendDefaults[varName] || 'Por confirmar';
+                        break;
+                      case 'empresa':
+                        // From frontend defaults (was variable 2)
+                        templateVariables[varName] = frontendDefaults['2'] || frontendDefaults[varName] || 'Nuestra clínica';
+                        break;
+                      case 'servicio':
+                        // From frontend defaults (was variable 3)
+                        templateVariables[varName] = frontendDefaults['3'] || frontendDefaults[varName] || 'Consulta';
+                        break;
+                      case 'fecha':
+                        // From frontend defaults (was variable 4)
+                        templateVariables[varName] = frontendDefaults['4'] || frontendDefaults[varName] || 'Por confirmar';
+                        break;
+                      case 'lugar':
+                        // From frontend defaults (was variable 5)
+                        templateVariables[varName] = frontendDefaults['5'] || frontendDefaults[varName] || 'Nuestra sede';
+                        break;
+                      default:
+                        // Check CSV first, then defaults
+                        if (contact[varName] !== undefined && contact[varName] !== '') {
+                          templateVariables[varName] = contact[varName];
+                        } else if (frontendDefaults[varName]) {
+                          templateVariables[varName] = frontendDefaults[varName];
+                        } else {
                           templateVariables[varName] = 'N/A';
-                      }
+                        }
                     }
                   });
                 } else if (typeof template.variables === 'string') {
