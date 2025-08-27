@@ -4,19 +4,22 @@ const prisma = new PrismaClient();
 // Configuración de la plantilla a agregar
 // MODIFICA ESTOS VALORES PARA CADA PLANTILLA NUEVA
 const NEW_TEMPLATE = {
-  name: 'CONFIRMACIÓN DE CITAS',  
-  twilioSid: 'HX0cf016874a1913d5d7a73ff060ad59cf',
+  name: 'CONFIRMACIÓN DE CITAS V2',  
+  twilioSid: 'HXcd93e4b0d65db811a1e8f0f9e06bb721',
   category: 'cita',  
-  content: `Hola {{nombre}}, confirmamos tu cita en {{empresa}}.
+  content: `Hola {{1}},
 
-📅 Fecha: {{fecha}}
-🏥 Sede: {{sede}}
-📋 Tipo de cita: {{tipo}}
+Confirmamos tu cita en {{2}}:
 
-Por favor llega 15 minutos antes. Si necesitas cancelar, comunícate al menos 24 horas antes.
+📋 Tipo: {{3}}
+📅 Fecha: {{4}}
+📍 Lugar: {{5}}
+🕐 Hora: {{6}}
 
-Gracias por confiar en nosotros.`,
-  variables: ['nombre', 'empresa', 'fecha', 'sede', 'tipo'],
+Por favor llega 15 minutos antes. Si necesitas cancelar o reprogramar, comunícate con nosotros con al menos 24 horas de anticipación.
+
+Gracias por tu preferencia.`,
+  variables: ['1', '2', '3', '4', '5', '6'],
   status: 'active',
   isPublic: true,  
   aiApproved: true
