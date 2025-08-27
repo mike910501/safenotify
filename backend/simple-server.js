@@ -1806,10 +1806,18 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                   }
 
                   template.variables.forEach(varName => {
-                    // Priority: CSV value → Frontend default → Built-in default
-                    if (contact[varName] !== undefined && contact[varName] !== '') {
+                    // Special handling for numbered variables
+                    if (varName === '1') {
+                      // Variable 1 is always the name
+                      templateVariables[varName] = contact.nombre || contact.name || 'Cliente';
+                    } else if (varName === '6') {
+                      // Variable 6 is the time/hora
+                      templateVariables[varName] = contact.hora || contact.Hora || contact.time || 'N/A';
+                    } else if (contact[varName] !== undefined && contact[varName] !== '') {
+                      // Direct mapping if exists
                       templateVariables[varName] = contact[varName];
                     } else if (frontendDefaults[varName]) {
+                      // Use frontend default
                       templateVariables[varName] = frontendDefaults[varName];
                     } else {
                       // Fallback defaults
