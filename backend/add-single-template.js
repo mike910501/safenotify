@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 // MODIFICA ESTOS VALORES PARA CADA PLANTILLA NUEVA
 const NEW_TEMPLATE = {
   name: 'CONFIRMACIÓN DE CITAS',  
-  twilioSid: 'AQUI_PONES_EL_CONTENT_SID_DE_TWILIO',  // Necesitas el Content SID que te da Twilio
+  twilioSid: 'HX0cf016874a1913d5d7a73ff060ad59cf',
   category: 'cita',  
   content: `Hola {{nombre}}, confirmamos tu cita en {{empresa}}.
 
@@ -17,9 +17,9 @@ Por favor llega 15 minutos antes. Si necesitas cancelar, comunícate al menos 24
 
 Gracias por confiar en nosotros.`,
   variables: ['nombre', 'empresa', 'fecha', 'sede', 'tipo'],
+  status: 'active',
   isPublic: true,  
-  isActive: true,  
-  adminApproved: true  
+  aiApproved: true
 };
 
 async function addTemplate() {
@@ -35,10 +35,11 @@ async function addTemplate() {
         category: NEW_TEMPLATE.category,
         content: NEW_TEMPLATE.content,
         variables: NEW_TEMPLATE.variables,
+        status: NEW_TEMPLATE.status,
         isPublic: NEW_TEMPLATE.isPublic,
-        isActive: NEW_TEMPLATE.isActive,
-        adminApproved: NEW_TEMPLATE.adminApproved,
-        adminReviewedAt: NEW_TEMPLATE.adminApproved ? new Date() : null
+        aiApproved: NEW_TEMPLATE.aiApproved,
+        adminReviewedAt: new Date(),
+        adminReviewedBy: 'system'
       }
     });
     
