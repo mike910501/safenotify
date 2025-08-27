@@ -4,14 +4,22 @@ const prisma = new PrismaClient();
 // Configuración de la plantilla a agregar
 // MODIFICA ESTOS VALORES PARA CADA PLANTILLA NUEVA
 const NEW_TEMPLATE = {
-  name: 'NOMBRE_DE_LA_PLANTILLA',  // Ejemplo: 'INSCRIPCIÓN CONFIRMADA'
-  twilioSid: 'HX_CONTENT_SID_DE_TWILIO',  // Ejemplo: 'HX8b8e03f87871c825af4f5f02e93f7cc3'
-  category: 'general',  // Opciones: 'cita', 'recordatorio', 'pago', 'envio', 'general', etc.
-  content: `Contenido de la plantilla aquí`,  // El contenido completo con {{variables}}
-  variables: ['variable1', 'variable2'],  // Ejemplo: ['nombre', 'fecha', 'hora']
-  isPublic: true,  // true para plantillas públicas
-  isActive: true,  // true para activar la plantilla
-  adminApproved: true  // true si está aprobada
+  name: 'CONFIRMACIÓN DE CITAS',  
+  twilioSid: 'AQUI_PONES_EL_CONTENT_SID_DE_TWILIO',  // Necesitas el Content SID que te da Twilio
+  category: 'cita',  
+  content: `Hola {{nombre}}, confirmamos tu cita en {{empresa}}.
+
+📅 Fecha: {{fecha}}
+🏥 Sede: {{sede}}
+📋 Tipo de cita: {{tipo}}
+
+Por favor llega 15 minutos antes. Si necesitas cancelar, comunícate al menos 24 horas antes.
+
+Gracias por confiar en nosotros.`,
+  variables: ['nombre', 'empresa', 'fecha', 'sede', 'tipo'],
+  isPublic: true,  
+  isActive: true,  
+  adminApproved: true  
 };
 
 async function addTemplate() {
