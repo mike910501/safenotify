@@ -25,6 +25,56 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3005;
 
+// Test template endpoint - FOR DEBUGGING ONLY
+app.post('/api/test-template-debug', async (req, res) => {
+  try {
+    console.log('🔍 TEST TEMPLATE DEBUG ENDPOINT');
+    
+    // Hardcoded test values
+    const testPhone = '+573108800753';
+    const contentSid = 'HX164c5aa2918cc699bedbe253ba2bf805';
+    const contentVariables = {
+      "1": "Juan TEST",
+      "2": "Clínica TEST",
+      "3": "Consulta TEST",
+      "4": "28 Agosto TEST",
+      "5": "Calle TEST",
+      "6": "10:00 TEST"
+    };
+    
+    console.log('📋 Test Configuration:');
+    console.log('   Account SID:', process.env.TWILIO_ACCOUNT_SID);
+    console.log('   WhatsApp:', process.env.TWILIO_WHATSAPP_NUMBER);
+    console.log('   Content SID:', contentSid);
+    console.log('   Variables:', JSON.stringify(contentVariables));
+    
+    const message = await client.messages.create({
+      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:${testPhone}`,
+      contentSid: contentSid,
+      contentVariables: JSON.stringify(contentVariables)
+    });
+    
+    console.log('✅ TEST MESSAGE SENT:', message.sid);
+    
+    res.json({
+      success: true,
+      messageSid: message.sid,
+      status: message.status,
+      to: testPhone
+    });
+    
+  } catch (error) {
+    console.error('❌ TEST TEMPLATE ERROR:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      moreInfo: error.moreInfo
+    });
+  }
+});
+
 // JWT utilities
 const generateToken = (userId) => {
   const secret = process.env.JWT_SECRET || 'fallback-secret';
