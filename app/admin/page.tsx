@@ -534,7 +534,7 @@ export default function AdminPage() {
                         {template.user ? (
                           <div className="text-sm text-dark-600 flex items-center space-x-1 bg-light-100 px-3 py-2 rounded-lg">
                             <User size={16} className="text-primary-500" />
-                            <span className="font-medium">{template.user.name}</span>
+                            <span className="font-medium">{template.user?.name || 'Sistema'}</span>
                           </div>
                         ) : (
                           <div className="text-sm text-dark-600 flex items-center space-x-1 bg-blue-100 px-3 py-2 rounded-lg">
@@ -570,11 +570,11 @@ export default function AdminPage() {
                           <div className="space-y-4">
                             <div className="flex items-center justify-between p-3 bg-light-50 rounded-lg">
                               <span className="font-medium text-dark-600">Usuario:</span>
-                              <span className="text-dark-800 font-semibold">{template.user.name}</span>
+                              <span className="text-dark-800 font-semibold">{template.user?.name || 'Sistema'}</span>
                             </div>
                             <div className="flex items-center justify-between p-3 bg-light-50 rounded-lg">
                               <span className="font-medium text-dark-600">Email:</span>
-                              <span className="text-sm text-dark-700">{template.user.email}</span>
+                              <span className="text-sm text-dark-700">{template.user?.email || 'sistema@safenotify.com'}</span>
                             </div>
                             <div className="flex items-center justify-between p-3 bg-light-50 rounded-lg">
                               <span className="font-medium text-dark-600">Categoría:</span>
