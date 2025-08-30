@@ -277,7 +277,7 @@ router.post('/templates/:id/activate', verifyToken, verifyAdmin, async (req, res
       data: {
         status: 'active',
         twilioTemplateId,
-        twilioSid: twilioSid || null,
+        twilioSid: twilioTemplateId || null,
         twilioContentSid: twilioContentSid || null,
         headerText: headerText || null,
         footerText: footerText || null,
@@ -536,6 +536,91 @@ router.delete('/templates/:id', verifyToken, verifyAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('Error deleting template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+// Create template manually
+router.post('/templates/create', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      content,
+      category,
+      variables,
+      isPublic,
+      language,
+      businessCategory,
+      headerText,
+      footerText,
+      twilioTemplateId,
+      twilioContentSid,
+      hasInteractiveButtons,
+      templateType,
+      buttonsConfig,
+      status
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nombre y contenido son requeridos'
+      });
+    }
+
+    // Create the template
+    const template = await prisma.template.create({
+      data: {
+        name,
+        content,
+        category: category || 'general',
+        variables: variables || [],
+        status: status || 'approved', // Admin-created templates are pre-approved
+        isPublic: isPublic || false,
+        aiApproved: true, // Admin-created templates bypass AI
+        aiScore: 100,
+        aiReasons: [],
+        aiSuggestions: [],
+        // WhatsApp Business fields
+        language: language || 'es',
+        businessCategory: businessCategory || 'UTILITY',
+        headerText: headerText || null,
+        footerText: footerText || null,
+        twilioTemplateId: twilioTemplateId || null,
+        twilioContentSid: twilioContentSid || null,
+        twilioSid: twilioTemplateId || twilioContentSid || null, // For lookup compatibility
+        // Interactive template fields
+        hasInteractiveButtons: hasInteractiveButtons || false,
+        templateType: templateType || 'TEXT',
+        buttonsConfig: buttonsConfig || null,
+        // Admin info
+        userId: null, // System template
+        adminReviewedBy: req.user.id,
+        adminReviewedAt: new Date(),
+        adminNotes: 'Creada manualmente desde panel admin'
+      }
+    });
+
+    console.log(`✅ Admin template created: ${template.name} (${template.id})`);
+
+    res.json({
+      success: true,
+      message: 'Plantilla creada exitosamente',
+      template: {
+        id: template.id,
+        name: template.name,
+        status: template.status,
+        isPublic: template.isPublic,
+        hasInteractiveButtons: template.hasInteractiveButtons
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating admin template:', error);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor'

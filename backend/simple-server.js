@@ -1398,12 +1398,14 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       });
     }
 
-    // Find template by twilioSid OR by name (fallback)
+    // Find template by twilioSid OR twilioContentSid OR name (fallback)
     console.log('🔍 Looking for template with SID:', templateSid);
     const template = await prisma.template.findFirst({
       where: {
         OR: [
           { twilioSid: templateSid },
+          { twilioContentSid: templateSid },
+          { twilioTemplateId: templateSid },
           { name: templateSid } // fallback if frontend sends name instead of SID
         ],
         AND: {
@@ -1544,7 +1546,18 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                 console.log('⚠️ No template variables found');
               }
               
-              console.log('🔧 Template variables:', templateVariables);
+              console.log('🔧 Template variables (named):', templateVariables);
+
+              // Convert named variables to numbered variables for WhatsApp Business
+              const numberedVariables = {};
+              if (template.variables && Array.isArray(template.variables)) {
+                template.variables.forEach((varName, index) => {
+                  const variableNumber = (index + 1).toString();
+                  numberedVariables[variableNumber] = templateVariables[varName] || '';
+                });
+              }
+              
+              console.log('📋 Numbered variables for WhatsApp:', numberedVariables);
 
               console.log(`📱 Sending to ${formattedPhone} with template ${template.twilioSid}`);
               
@@ -1555,12 +1568,39 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
               
               console.log(`📞 From: ${fromNumber}, To: ${whatsappNumber}`);
               
-              const message = await client.messages.create({
+              // Prepare message payload based on template type
+              let messagePayload = {
                 from: fromNumber,
-                to: whatsappNumber,
-                contentSid: template.twilioSid,
-                contentVariables: JSON.stringify(templateVariables)
+                to: whatsappNumber
+              };
+
+              if (template.hasInteractiveButtons && template.buttonsConfig) {
+                console.log('🔘 Sending interactive template with buttons');
+                
+                // For interactive templates with buttons
+                messagePayload.contentSid = template.twilioSid;
+                messagePayload.contentVariables = JSON.stringify(numberedVariables);
+                
+                // Add button configuration if available
+                if (template.buttonsConfig && Array.isArray(template.buttonsConfig)) {
+                  console.log('🔘 Button config:', template.buttonsConfig);
+                  // Note: Button handling depends on Twilio's specific implementation
+                  // This may need adjustment based on your Twilio setup
+                }
+              } else {
+                console.log('📝 Sending standard text template');
+                
+                // Standard text template
+                messagePayload.contentSid = template.twilioSid;
+                messagePayload.contentVariables = JSON.stringify(numberedVariables);
+              }
+              
+              console.log('📤 Message payload:', {
+                ...messagePayload,
+                contentVariables: 'variables logged separately above'
               });
+              
+              const message = await client.messages.create(messagePayload);
 
               console.log(`✅ Message sent: ${message.sid}`);
               sentCount++;

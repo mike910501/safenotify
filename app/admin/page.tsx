@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { AnimatedIcon } from '@/components/ui/animated-icon'
 import { useAuth } from '@/hooks/useAuth'
+import { useToast } from '@/components/ui/toast'
 
 interface Template {
   id: string
@@ -54,6 +55,7 @@ interface AdminStats {
 export default function AdminPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const toast = useToast()
   const [templates, setTemplates] = useState<Template[]>([])
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,6 +65,7 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   // Verificar permisos de admin
   useEffect(() => {
@@ -157,15 +160,15 @@ export default function AdminPage() {
       const data = await response.json()
       
       if (data.success) {
-        alert('Plantilla aprobada exitosamente')
+        toast.success('Plantilla aprobada exitosamente', 'La plantilla ha sido aprobada y está lista para activación')
         fetchTemplates()
         fetchStats()
       } else {
-        alert(data.error || 'Error aprobando plantilla')
+        toast.error('Error aprobando plantilla', data.error || 'No se pudo aprobar la plantilla')
       }
     } catch (error) {
       console.error('Error approving template:', error)
-      alert('Error de conexión')
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión a internet')
     } finally {
       setActionLoading(null)
     }
@@ -193,15 +196,15 @@ export default function AdminPage() {
       const data = await response.json()
       
       if (data.success) {
-        alert('Plantilla rechazada')
+        toast.warning('Plantilla rechazada', 'La plantilla ha sido marcada como rechazada')
         fetchTemplates()
         fetchStats()
       } else {
-        alert(data.error || 'Error rechazando plantilla')
+        toast.error('Error rechazando plantilla', data.error || 'No se pudo rechazar la plantilla')
       }
     } catch (error) {
       console.error('Error rejecting template:', error)
-      alert('Error de conexión')
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión a internet')
     } finally {
       setActionLoading(null)
     }
@@ -238,15 +241,15 @@ export default function AdminPage() {
       const data = await response.json()
       
       if (data.success) {
-        alert('Plantilla activada exitosamente con configuración WhatsApp Business')
+        toast.success('Plantilla activada exitosamente', 'La plantilla está ahora activa con configuración WhatsApp Business y lista para envío')
         fetchTemplates()
         fetchStats()
       } else {
-        alert(data.error || 'Error activando plantilla')
+        toast.error('Error activando plantilla', data.error || 'No se pudo activar la plantilla')
       }
     } catch (error) {
       console.error('Error activating template:', error)
-      alert('Error de conexión')
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión a internet')
     } finally {
       setActionLoading(null)
     }
@@ -269,15 +272,15 @@ export default function AdminPage() {
       const data = await response.json()
       
       if (data.success) {
-        alert('Plantilla eliminada exitosamente')
+        toast.success('Plantilla eliminada exitosamente', 'La plantilla ha sido eliminada permanentemente del sistema')
         fetchTemplates()
         fetchStats()
       } else {
-        alert(data.error || 'Error eliminando plantilla')
+        toast.error('Error eliminando plantilla', data.error || 'No se pudo eliminar la plantilla')
       }
     } catch (error) {
       console.error('Error deleting template:', error)
-      alert('Error de conexión')
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión a internet')
     } finally {
       setActionLoading(null)
     }
@@ -393,14 +396,25 @@ export default function AdminPage() {
                 </div>
               </div>
               
-              <Button 
-                onClick={fetchTemplates} 
-                className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                size="lg"
-              >
-                <RefreshCw size={16} className="mr-2" />
-                Actualizar
-              </Button>
+              <div className="flex space-x-3">
+                <Button 
+                  onClick={fetchTemplates} 
+                  className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  size="lg"
+                >
+                  <RefreshCw size={16} className="mr-2" />
+                  Actualizar
+                </Button>
+                
+                <Button 
+                  onClick={() => setShowCreateModal(true)} 
+                  className="bg-gradient-to-r from-secondary-500 to-secondary-600 hover:from-secondary-600 hover:to-secondary-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  size="lg"
+                >
+                  <Sparkles size={16} className="mr-2" />
+                  Crear Plantilla
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
@@ -823,6 +837,413 @@ export default function AdminPage() {
           </div>
         )}
       </Card>
+      </div>
+
+      {/* Modal de Creación de Plantilla */}
+      <CreateTemplateModal 
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false)
+          fetchTemplates()
+          fetchStats()
+        }}
+        toast={toast}
+      />
+    </div>
+  )
+}
+
+// Modal Component for Creating Templates
+function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+  toast: any
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    content: '',
+    category: 'general',
+    variables: '',
+    isPublic: false,
+    language: 'es',
+    businessCategory: 'UTILITY',
+    headerText: '',
+    footerText: '',
+    twilioTemplateId: '',
+    twilioContentSid: '',
+    hasInteractiveButtons: false,
+    templateType: 'TEXT',
+    buttonsConfig: ''
+  })
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      
+      // Parse variables and buttons
+      let variables = []
+      if (formData.variables.trim()) {
+        variables = formData.variables.split(',').map(v => v.trim()).filter(v => v)
+      }
+
+      let buttonsConfig = null
+      if (formData.hasInteractiveButtons && formData.buttonsConfig.trim()) {
+        try {
+          buttonsConfig = JSON.parse(formData.buttonsConfig)
+        } catch (e) {
+          toast.error('Error en configuración de botones', 'El JSON de botones no es válido')
+          return
+        }
+      }
+
+      const payload = {
+        ...formData,
+        variables,
+        buttonsConfig,
+        status: 'approved' // Admin-created templates are pre-approved
+      }
+
+      const response = await fetch(`${API_URL}/api/admin/templates/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('Plantilla creada exitosamente', 'La plantilla está lista para usar')
+        onSuccess()
+        setFormData({
+          name: '',
+          content: '',
+          category: 'general',
+          variables: '',
+          isPublic: false,
+          language: 'es',
+          businessCategory: 'UTILITY',
+          headerText: '',
+          footerText: '',
+          twilioTemplateId: '',
+          twilioContentSid: '',
+          hasInteractiveButtons: false,
+          templateType: 'TEXT',
+          buttonsConfig: ''
+        })
+      } else {
+        toast.error('Error creando plantilla', data.error || 'No se pudo crear la plantilla')
+      }
+    } catch (error) {
+      console.error('Error creating template:', error)
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+              Crear Nueva Plantilla
+            </h2>
+            <Button 
+              onClick={onClose}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-3 rounded-lg"
+            >
+              <XCircle size={24} />
+            </Button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Información Básica */}
+              <Card className="p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-primary-600" />
+                  Información Básica
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre de la Plantilla *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="ej. Confirmación de Cita"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Categoría
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    >
+                      <option value="general">General</option>
+                      <option value="appointment_update">Actualización de Citas</option>
+                      <option value="payment_reminder">Recordatorio de Pago</option>
+                      <option value="service_notification">Notificación de Servicio</option>
+                      <option value="marketing">Marketing</option>
+                      <option value="support">Soporte</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Variables (separadas por comas)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.variables}
+                      onChange={(e) => setFormData({...formData, variables: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="ej. nombre, fecha, hora, servicio"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Estas variables se pueden usar como {{1}}, {{2}}, etc. en el mensaje
+                    </p>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="isPublic"
+                      checked={formData.isPublic}
+                      onChange={(e) => setFormData({...formData, isPublic: e.target.checked})}
+                      className="mr-2"
+                    />
+                    <label htmlFor="isPublic" className="text-sm font-medium text-gray-700">
+                      Plantilla Pública (visible para todos los usuarios)
+                    </label>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Configuración WhatsApp */}
+              <Card className="p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-green-600" />
+                  Configuración WhatsApp
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Template ID de Twilio
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.twilioTemplateId}
+                      onChange={(e) => setFormData({...formData, twilioTemplateId: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="HX..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Content SID (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.twilioContentSid}
+                      onChange={(e) => setFormData({...formData, twilioContentSid: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="HX..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Idioma
+                      </label>
+                      <select
+                        value={formData.language}
+                        onChange={(e) => setFormData({...formData, language: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      >
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                        <option value="pt">Português</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Categoría Business
+                      </label>
+                      <select
+                        value={formData.businessCategory}
+                        onChange={(e) => setFormData({...formData, businessCategory: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      >
+                        <option value="UTILITY">Utilidad</option>
+                        <option value="MARKETING">Marketing</option>
+                        <option value="AUTHENTICATION">Autenticación</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Header Text (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.headerText}
+                      onChange={(e) => setFormData({...formData, headerText: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="Texto del encabezado"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Footer Text (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.footerText}
+                      onChange={(e) => setFormData({...formData, footerText: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="Texto del pie"
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Contenido del Mensaje */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <MessageSquare className="w-5 h-5 mr-2 text-accent-600" />
+                Contenido del Mensaje
+              </h3>
+              
+              <textarea
+                required
+                value={formData.content}
+                onChange={(e) => setFormData({...formData, content: e.target.value})}
+                rows={6}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                placeholder="Hola {{1}}, tu cita para {{2}} está confirmada para el {{3}} a las {{4}}. ¡Te esperamos!"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Usa {{1}}, {{2}}, {{3}}, etc. para las variables. Corresponden al orden de las variables definidas arriba.
+              </p>
+            </Card>
+
+            {/* Botones Interactivos */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <Zap className="w-5 h-5 mr-2 text-purple-600" />
+                Botones Interactivos (Opcional)
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="hasButtons"
+                    checked={formData.hasInteractiveButtons}
+                    onChange={(e) => setFormData({...formData, hasInteractiveButtons: e.target.checked})}
+                    className="mr-2"
+                  />
+                  <label htmlFor="hasButtons" className="text-sm font-medium text-gray-700">
+                    Esta plantilla tiene botones interactivos
+                  </label>
+                </div>
+
+                {formData.hasInteractiveButtons && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de Plantilla
+                      </label>
+                      <select
+                        value={formData.templateType}
+                        onChange={(e) => setFormData({...formData, templateType: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      >
+                        <option value="TEXT">Texto</option>
+                        <option value="INTERACTIVE">Interactiva</option>
+                        <option value="MEDIA">Media</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Configuración de Botones (JSON)
+                      </label>
+                      <textarea
+                        value={formData.buttonsConfig}
+                        onChange={(e) => setFormData({...formData, buttonsConfig: e.target.value})}
+                        rows={4}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors font-mono text-sm"
+                        placeholder='[{"type": "QUICK_REPLY", "text": "Confirmar"}, {"type": "QUICK_REPLY", "text": "Cancelar"}]'
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Formato JSON para configurar botones de respuesta rápida o URL
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {/* Botones de Acción */}
+            <div className="flex justify-end space-x-4 pt-6 border-t">
+              <Button
+                type="button"
+                onClick={onClose}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-3"
+              >
+                Cancelar
+              </Button>
+              
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={18} className="mr-2 animate-spin" />
+                    Creando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} className="mr-2" />
+                    Crear Plantilla
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   )

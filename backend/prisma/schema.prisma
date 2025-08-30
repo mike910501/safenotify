@@ -74,6 +74,11 @@ model Template {
   twilioContentSid String?
   businessCategory String     @default("UTILITY")
   
+  // Interactive Templates (with buttons)
+  hasInteractiveButtons Boolean @default(false)
+  buttonsConfig        Json?    // Configuration for buttons like [{type: "QUICK_REPLY", text: "Confirmar"}, {type: "QUICK_REPLY", text: "Cancelar"}]
+  templateType         String   @default("TEXT") // TEXT, INTERACTIVE, MEDIA
+  
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   userId           String?

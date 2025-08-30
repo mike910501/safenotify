@@ -19,6 +19,7 @@ import { CustomTemplateService } from '@/components/templates/custom-template-se
 import { UpgradeCta } from '@/components/ui/upgrade-cta'
 import { LimitExceededModal } from '@/components/ui/limit-exceeded-modal'
 import { useAuth } from '@/hooks/useAuth'
+import { useToast } from '@/components/ui/toast'
 
 type Step = 'upload' | 'template' | 'review' | 'sending'
 
@@ -49,6 +50,7 @@ interface CSVRow {
 export default function SendMessagesPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const toast = useToast()
   const [currentStep, setCurrentStep] = useState<Step>('upload')
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [message, setMessage] = useState('')
@@ -118,7 +120,14 @@ export default function SendMessagesPage() {
       // Create campaign
       const formData = new FormData()
       formData.append('name', `Campaign ${new Date().toLocaleString()}`)
-      formData.append('templateSid', selectedTemplate.twilioSid || '')
+      // Send the template SID - required for WhatsApp Business
+      const templateSid = selectedTemplate.twilioSid
+      if (!templateSid) {
+        toast.error('Error de configuración', 'Esta plantilla no tiene configurado un ID de WhatsApp. Contacta al administrador.')
+        setLoading(false)
+        return
+      }
+      formData.append('templateSid', templateSid)
       formData.append('variableMappings', JSON.stringify(variableMappings))
       formData.append('defaultValues', JSON.stringify(defaultValues))
       
@@ -135,7 +144,7 @@ export default function SendMessagesPage() {
       console.log('📤 Creating campaign with backend...')
       console.log('📋 Campaign data:', {
         name: `Campaign ${new Date().toLocaleString()}`,
-        templateSid: selectedTemplate.twilioSid,
+        templateSid: templateSid,
         contactsCount: csvData.length,
         variableMappings,
         defaultValues
@@ -456,7 +465,7 @@ export default function SendMessagesPage() {
                     optionalVariables: [],
                     usageCount: 0,
                     description: `${template.status === 'active' ? 'Activa' : 'Aprobada'}`,
-                    twilioSid: template.twilioSid
+                    twilioSid: template.twilioContentSid || template.twilioSid || template.twilioTemplateId
                   }
                   setSelectedTemplate(convertedTemplate)
                   setMessage(template.content)
