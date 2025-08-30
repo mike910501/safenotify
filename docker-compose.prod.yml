@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # Redis for Bull Queue system
+  redis:
+    image: redis:7-alpine
+    container_name: safenotify-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-safenotify2024}
+    volumes:
+      - redis_data:/data
+    networks:
+      - safenotify-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # SafeNotify Backend API with Enhanced Queue System
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: safenotify-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-safenotify2024}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - WOMPI_PUBLIC_KEY=${WOMPI_PUBLIC_KEY}
+      - WOMPI_PRIVATE_KEY=${WOMPI_PRIVATE_KEY}
+      - WOMPI_ENVIRONMENT=${WOMPI_ENVIRONMENT:-production}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/logs:/app/logs
+      - backend_uploads:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - safenotify-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Nginx reverse proxy (optional, for production SSL/load balancing)
+  nginx:
+    image: nginx:alpine
+    container_name: safenotify-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - backend
+    networks:
+      - safenotify-network
+
+volumes:
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+
+networks:
+  safenotify-network:
+    driver: bridge
+
+# Production deployment notes:
+# 1. Set all environment variables in .env.production file
+# 2. Configure SSL certificates in nginx/ssl/
+# 3. Run: docker-compose -f docker-compose.prod.yml up -d
+# 4. Monitor logs: docker-compose -f docker-compose.prod.yml logs -f
+# 5. Scale if needed: docker-compose -f docker-compose.prod.yml up -d --scale backend=3

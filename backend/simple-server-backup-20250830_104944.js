@@ -1308,6 +1308,13 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
     console.log('📋 Request body:', { name, templateSid, variableMappings, defaultValues });
     console.log('📁 File:', csvFile ? 'Present' : 'Missing');
 
+    console.log('📤 Creating campaign:', {
+      name,
+      templateSid,
+      userId: req.user.id,
+      hasFile: !!csvFile
+    });
+
     if (!csvFile) {
       return res.status(400).json({
         success: false,
@@ -1315,26 +1322,17 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       });
     }
 
-    // Read and validate CSV file with enhanced error handling
+    // VALIDACIÓN DE LÍMITES: Primero leemos el CSV para contar contactos
+    console.log('🔍 INICIANDO VALIDACIÓN DE LÍMITES');
     const fs = require('fs');
     let totalContactsToSend = 0;
-    let csvBuffer = null;
     
     try {
-      csvBuffer = fs.readFileSync(csvFile.path);
-      const csvContent = csvBuffer.toString('utf8');
+      const csvContent = fs.readFileSync(csvFile.path, 'utf8');
       const csvLines = csvContent.split('\n').filter(line => line.trim());
-      
-      if (csvLines.length < 2) {
-        return res.status(400).json({
-          success: false,
-          error: 'El archivo CSV debe contener al menos una fila de datos'
-        });
-      }
-      
       const headers = csvLines[0].split(',').map(h => h.trim());
       
-      // Count valid contacts with enhanced validation
+      // Contar contactos válidos (que tengan teléfono)
       for (let i = 1; i < csvLines.length; i++) {
         const values = csvLines[i].split(',').map(v => v.trim());
         const contact = {};
@@ -1342,33 +1340,24 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
           contact[header] = values[index] || '';
         });
         
-        if (contact.telefono || contact.phone || contact.Phone || contact.celular) {
+        if (contact.telefono || contact.phone) {
           totalContactsToSend++;
         }
       }
-      
-      console.log(`📊 Total contacts to send: ${totalContactsToSend}`);
-      
-      if (totalContactsToSend === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'No se encontraron contactos válidos en el archivo CSV'
-        });
-      }
-      
     } catch (error) {
-      console.error('Error reading CSV file:', error);
+      console.error('Error reading CSV for validation:', error);
       return res.status(400).json({
         success: false,
-        error: 'Error al procesar archivo CSV. Verifica que el formato sea correcto.'
+        error: 'Error al procesar archivo CSV'
       });
     }
 
-    // Validate user plan limits with enhanced messaging
+    console.log(`📊 Total contacts to send: ${totalContactsToSend}`);
+
+    // Obtener datos actuales del usuario
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
-        name: true,
         messagesUsed: true,
         messagesLimit: true,
         planType: true
@@ -1392,6 +1381,7 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       contactsToSend: totalContactsToSend
     });
 
+    // VALIDAR LÍMITES
     if (totalContactsToSend > messagesAvailable) {
       console.log('🚫 LÍMITE EXCEDIDO - BLOQUEANDO ENVÍO');
       return res.status(403).json({
@@ -1402,13 +1392,12 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
           available: messagesAvailable,
           planType: currentUser.planType,
           messagesUsed: currentUser.messagesUsed,
-          messagesLimit: currentUser.messagesLimit,
-          suggestion: messagesAvailable > 0 
-            ? `Puedes enviar hasta ${messagesAvailable} mensajes con tu plan actual` 
-            : 'Actualiza tu plan para enviar más mensajes'
+          messagesLimit: currentUser.messagesLimit
         }
       });
     }
+    
+    console.log('✅ VALIDACIÓN PASADA - CONTINUANDO CON ENVÍO');
 
     if (!templateSid) {
       return res.status(400).json({
@@ -1417,14 +1406,15 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       });
     }
 
-    // Find template with enhanced search
+    // Find template by twilioSid OR twilioContentSid OR name (fallback)
+    console.log('🔍 Looking for template with SID:', templateSid);
     const template = await prisma.template.findFirst({
       where: {
         OR: [
           { twilioSid: templateSid },
           { twilioContentSid: templateSid },
           { twilioTemplateId: templateSid },
-          { name: templateSid }
+          { name: templateSid } // fallback if frontend sends name instead of SID
         ],
         AND: {
           OR: [
@@ -1434,6 +1424,8 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
         }
       }
     });
+    
+    console.log('📋 Template found:', template ? `${template.name} (${template.id})` : 'NOT FOUND');
 
     if (!template) {
       return res.status(404).json({
@@ -1442,91 +1434,294 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       });
     }
 
-    console.log('📋 Template found:', `${template.name} (${template.id})`);
+    // Process and send immediately for maximum security (no data storage)
+    let sentCount = 0;
+    let errorCount = 0;
+    let totalContacts = 0;
+    const sendResults = [];
+    
+    if (csvFile && csvFile.path) {
+      try {
+        // Re-read CSV for processing (we already validated it above)
+        const csvContent = fs.readFileSync(csvFile.path, 'utf8');
+        console.log('📄 CSV file read for immediate processing');
+        
+        // Parse CSV and send messages immediately
+        const csvLines = csvContent.split('\n').filter(line => line.trim());
+        const headers = csvLines[0].split(',').map(h => h.trim());
+        console.log('📋 CSV Headers:', headers);
+        
+        // Process each contact and send immediately
+        for (let i = 1; i < csvLines.length; i++) {
+          const values = csvLines[i].split(',').map(v => v.trim());
+          const contact = {};
+          headers.forEach((header, index) => {
+            contact[header] = values[index] || '';
+          });
+          
+          if (contact.telefono || contact.phone) {
+            totalContacts++;
+            console.log(`📤 Processing contact ${i}: ${contact.nombre || 'Unknown'} - ${contact.telefono || contact.phone}`);
+            console.log(`🔍 Template variables value:`, template.variables, typeof template.variables);
+            
+            try {
+              const phoneNumber = contact.telefono || contact.phone;
+              const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+57${phoneNumber}`;
+              const whatsappNumber = `whatsapp:${formattedPhone}`;
 
-    // Create campaign record in 'queued' status
+              // Parse template variables
+              let templateVariables = {};
+              if (template.variables) {
+                if (Array.isArray(template.variables)) {
+                  // Variables is already an array
+                  console.log('📋 Variables are array, processing...');
+                  // Parse defaultValues from frontend
+                  let frontendDefaults = {};
+                  if (req.body.defaultValues) {
+                    try {
+                      let rawDefaults = JSON.parse(req.body.defaultValues);
+                      console.log('📝 Raw frontend defaults:', rawDefaults);
+                      
+                      // Clean up malformed keys (remove extra { characters)
+                      Object.keys(rawDefaults).forEach(key => {
+                        const cleanKey = key.replace(/^\{+/, ''); // Remove leading {
+                        frontendDefaults[cleanKey] = rawDefaults[key];
+                      });
+                      
+                      console.log('🧹 Cleaned frontend defaults:', frontendDefaults);
+                    } catch (e) {
+                      console.log('⚠️ Could not parse defaultValues:', req.body.defaultValues);
+                    }
+                  }
+
+                  template.variables.forEach(varName => {
+                    // Map variables based on their names
+                    switch(varName) {
+                      case 'nombre':
+                        // Always from CSV
+                        templateVariables[varName] = contact.nombre || contact.Nombre || contact.name || 'Cliente';
+                        break;
+                      case 'hora':
+                        // From CSV if available, otherwise from defaults
+                        templateVariables[varName] = contact.Hora || contact.hora || contact.time || frontendDefaults[varName] || '';
+                        break;
+                      case 'empresa':
+                        // From frontend defaults (was variable 2)
+                        templateVariables[varName] = frontendDefaults['2'] || frontendDefaults[varName] || 'Nuestra clínica';
+                        break;
+                      case 'servicio':
+                        // From frontend defaults (was variable 3)
+                        templateVariables[varName] = frontendDefaults['3'] || frontendDefaults[varName] || 'Consulta';
+                        break;
+                      case 'fecha':
+                        // From frontend defaults (was variable 4)
+                        templateVariables[varName] = frontendDefaults['4'] || frontendDefaults[varName] || '';
+                        break;
+                      case 'lugar':
+                        // From frontend defaults (was variable 5)
+                        templateVariables[varName] = frontendDefaults['5'] || frontendDefaults[varName] || 'Nuestra sede';
+                        break;
+                      default:
+                        // Check CSV first, then defaults
+                        if (contact[varName] !== undefined && contact[varName] !== '') {
+                          templateVariables[varName] = contact[varName];
+                        } else if (frontendDefaults[varName]) {
+                          templateVariables[varName] = frontendDefaults[varName];
+                        } else {
+                          templateVariables[varName] = ''; // Use empty string instead of 'N/A'
+                        }
+                    }
+                  });
+                } else if (typeof template.variables === 'string') {
+                  try {
+                    // Try to parse as JSON array first
+                    const variableNames = JSON.parse(template.variables);
+                    if (Array.isArray(variableNames)) {
+                      variableNames.forEach(varName => {
+                        templateVariables[varName] = contact[varName] || '';
+                      });
+                    }
+                  } catch (e) {
+                    // If not JSON, treat as comma-separated string
+                    console.log('📋 Variables are comma-separated string, parsing...');
+                    const variableNames = template.variables.split(',').map(v => v.trim());
+                    variableNames.forEach(varName => {
+                      templateVariables[varName] = contact[varName] || '';
+                    });
+                  }
+                }
+              } else {
+                console.log('⚠️ No template variables found');
+              }
+              
+              console.log('🔧 Template variables (named):', templateVariables);
+
+              // Convert named variables to numbered variables for WhatsApp Business
+              // CRITICAL: WhatsApp requires EXACT number of parameters, even if empty
+              
+              // First, detect how many numbered placeholders are in the template content
+              const placeholderMatches = template.content.match(/\{\{(\d+)\}\}/g) || [];
+              const maxPlaceholderNumber = placeholderMatches.reduce((max, match) => {
+                const num = parseInt(match.replace(/[{}]/g, ''));
+                return Math.max(max, num);
+              }, 0);
+              
+              console.log(`🔍 Template content has placeholders up to {{${maxPlaceholderNumber}}}`);
+              console.log(`📊 Variables array length: ${template.variables ? template.variables.length : 0}`);
+              
+              // Use the actual number of placeholders in content, not variables array length
+              const actualParameterCount = maxPlaceholderNumber;
+              
+              const numberedVariables = {};
+              if (template.variables && Array.isArray(template.variables)) {
+                template.variables.forEach((varName, index) => {
+                  const variableNumber = (index + 1).toString();
+                  // Only include if this parameter number is actually used in template
+                  if (index < actualParameterCount) {
+                    numberedVariables[variableNumber] = templateVariables[varName] || '';
+                  }
+                });
+              }
+              
+              // Ensure we have exactly the number of parameters the WhatsApp template expects
+              for (let i = 1; i <= actualParameterCount; i++) {
+                const key = i.toString();
+                if (!numberedVariables[key]) {
+                  numberedVariables[key] = ''; // Fill missing variables with empty string
+                }
+              }
+              
+              console.log('📋 Numbered variables for WhatsApp:', numberedVariables);
+              console.log(`🔢 Template expects ${actualParameterCount} parameters, sending ${Object.keys(numberedVariables).length} variables`);
+              
+              // Additional validation: ensure no parameters are undefined or null
+              Object.keys(numberedVariables).forEach(key => {
+                if (numberedVariables[key] === undefined || numberedVariables[key] === null) {
+                  numberedVariables[key] = '';
+                  console.log(`⚠️ Fixed undefined parameter ${key}, set to empty string`);
+                }
+              });
+
+              console.log(`📱 Sending to ${formattedPhone} with template ${template.twilioSid}`);
+              
+              // Send message via Twilio immediately
+              const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER.startsWith('whatsapp:') 
+                ? process.env.TWILIO_WHATSAPP_NUMBER 
+                : `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`;
+              
+              console.log(`📞 From: ${fromNumber}, To: ${whatsappNumber}`);
+              
+              // Prepare message payload based on template type
+              let messagePayload = {
+                from: fromNumber,
+                to: whatsappNumber
+              };
+
+              if (template.hasInteractiveButtons && template.buttonsConfig) {
+                console.log('🔘 Sending interactive template with buttons');
+                
+                // For interactive templates with buttons
+                messagePayload.contentSid = template.twilioSid;
+                messagePayload.contentVariables = JSON.stringify(numberedVariables);
+                
+                // Add button configuration if available
+                if (template.buttonsConfig && Array.isArray(template.buttonsConfig)) {
+                  console.log('🔘 Button config:', template.buttonsConfig);
+                  // Note: Button handling depends on Twilio's specific implementation
+                  // This may need adjustment based on your Twilio setup
+                }
+              } else {
+                console.log('📝 Sending standard text template');
+                
+                // Standard text template
+                messagePayload.contentSid = template.twilioSid;
+                messagePayload.contentVariables = JSON.stringify(numberedVariables);
+              }
+              
+              console.log('📤 Message payload:', {
+                ...messagePayload,
+                contentVariables: 'variables logged separately above'
+              });
+              
+              const message = await client.messages.create(messagePayload);
+
+              console.log(`✅ Message sent: ${message.sid}`);
+              sentCount++;
+              
+              // Wait 1 second between messages (rate limiting)
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
+            } catch (msgError) {
+              console.error(`❌ Error sending to ${contact.telefono || contact.phone}:`, msgError.message);
+              errorCount++;
+            }
+          }
+        }
+        
+        // IMMEDIATELY delete file after processing
+        fs.unlinkSync(csvFile.path);
+        console.log('🗑️ CSV file securely deleted after processing');
+        
+      } catch (error) {
+        console.error('❌ Error processing CSV file:', error.message);
+        return res.status(500).json({
+          success: false,
+          error: 'Error al procesar el archivo CSV'
+        });
+      }
+    }
+
+    // ACTUALIZAR CONTADOR DE MENSAJES USADOS
+    if (sentCount > 0) {
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          messagesUsed: {
+            increment: sentCount
+          }
+        }
+      });
+      
+      console.log(`📈 Updated user message count: +${sentCount} messages used`);
+    }
+
+    // Create campaign record with final results
     const campaign = await prisma.campaign.create({
       data: {
         name: name || `Campaign ${new Date().toLocaleString()}`,
         templateId: template.id,
         userId: req.user.id,
-        status: 'queued',
-        totalContacts: totalContactsToSend,
-        sentCount: 0,
-        errorCount: 0,
+        status: 'completed', // Already completed
+        totalContacts: totalContacts,
+        sentCount: sentCount,
+        errorCount: errorCount,
         sentAt: new Date()
+        // NO csvData stored for security/privacy
       }
     });
 
-    console.log(`📝 Campaign created in queue: ${campaign.name} (${campaign.id})`);
+    console.log(`🎉 Campaign completed: ${campaign.name} (${campaign.id}) - ${sentCount}/${totalContacts} sent`);
 
-    // Add job to queue for background processing with priority
-    const jobOptions = {
-      delay: 1000, // Start processing in 1 second
-      priority: currentUser.planType === 'enterprise' ? 1 : 
-                currentUser.planType === 'pro' ? 2 : 3, // Enterprise gets highest priority
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 5000,
-      },
-      removeOnComplete: 5, // Keep last 5 completed jobs
-      removeOnFail: 20     // Keep last 20 failed jobs
-    };
-
-    const job = await addCampaignJob({
-      campaignId: campaign.id,
-      csvBuffer: csvBuffer,
-      template: template,
-      userId: req.user.id,
-      userName: currentUser.name || 'Usuario',
-      variableMappings: variableMappings ? JSON.parse(variableMappings) : {},
-      defaultValues: defaultValues ? JSON.parse(defaultValues) : {}
-    }, jobOptions);
-
-    console.log(`⏳ Campaign job queued: ${job.id} with priority ${jobOptions.priority}`);
-
-    // Clean up uploaded file immediately for security
-    try {
-      fs.unlinkSync(csvFile.path);
-      console.log('🗑️ CSV file deleted for security');
-    } catch (cleanupError) {
-      console.error('⚠️ Could not delete CSV file:', cleanupError.message);
-    }
-
-    // Return immediate response - processing will happen in background
     res.json({
       success: true,
-      message: 'Campaña agregada a la cola de procesamiento. Comenzará el envío en unos segundos.',
+      message: `Campaña procesada: ${sentCount} mensajes enviados exitosamente`,
       campaign: {
         id: campaign.id,
         name: campaign.name,
-        status: 'queued',
-        totalContacts: totalContactsToSend,
+        status: campaign.status,
+        sentCount: sentCount,
+        errorCount: errorCount,
+        totalContacts: totalContacts,
         template: template.name,
-        jobId: job.id,
-        estimatedStartTime: new Date(Date.now() + jobOptions.delay).toISOString(),
-        priority: jobOptions.priority
+        twilioSid: template.twilioSid
       }
     });
 
   } catch (error) {
     console.error('Error creating campaign:', error);
-    
-    // Clean up file in case of error
-    if (req.file && req.file.path) {
-      try {
-        const fs = require('fs');
-        fs.unlinkSync(req.file.path);
-        console.log('🗑️ Cleaned up file after error');
-      } catch (cleanupError) {
-        console.error('Could not delete file after error:', cleanupError);
-      }
-    }
-    
     res.status(500).json({
       success: false,
-      error: 'Error interno del servidor al crear campaña'
+      error: 'Error al crear campaña'
     });
   }
 });

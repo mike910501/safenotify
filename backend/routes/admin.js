@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
-const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { authenticateToken: verifyToken, verifyAdmin } = require('../middleware/auth');
 const twilio = require('twilio');
 const crypto = require('crypto');
 

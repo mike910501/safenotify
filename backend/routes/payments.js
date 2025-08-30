@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
-const { verifyToken } = require('../middleware/auth');
+const { authenticateToken: verifyToken } = require('../middleware/auth');
 const wompiService = require('../services/wompi');
 
 const router = express.Router();
