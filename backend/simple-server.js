@@ -2217,6 +2217,10 @@ app.use('/api/blacklist', blacklistRoutes);
 // Mount analytics routes
 app.use('/api/analytics', analyticsRoutes);
 
+// Mount Sofia AI webhook routes
+const sofiaWebhookRoutes = require('./routes/sofiaWebhook');
+app.use('/api/webhooks', sofiaWebhookRoutes);
+
 // Export user data endpoint
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {
   try {

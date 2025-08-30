@@ -24,6 +24,7 @@ model User {
   passwordResets PasswordReset[]
   payments       Payment[]
   templates      Template[]
+  clientFunnels  ClientFunnel[]  // New relation for funnel system
 
   @@map("users")
 }
@@ -153,4 +154,428 @@ model WhatsAppConfig {
   updatedAt          DateTime @updatedAt
 
   @@map("whatsapp_config")
+}
+
+// ===== IA CONVERSATIONAL MODELS =====
+
+enum SafeNotifyLeadStatus {
+  new
+  qualified
+  demo_scheduled
+  demo_completed
+  converted
+  lost
+  nurturing
+}
+
+enum ClientFunnelLeadStatus {
+  new
+  qualified
+  interested
+  appointment_scheduled
+  appointment_completed
+  converted
+  lost
+  nurturing
+}
+
+// Sofia IA - SafeNotify Sales Leads
+model SafeNotifyLead {
+  id                    String                 @id @default(cuid())
+  phone                 String                 @unique
+  name                  String?
+  email                 String?
+  clinicName            String?
+  specialty             String?
+  industry              String?
+  source                String                 @default("whatsapp")
+  
+  // Qualification data
+  monthlyPatients       Int?
+  currentSystem         String?
+  whatsappUsage         String?
+  complianceAwareness   Boolean                @default(false)
+  qualificationScore    Int                    @default(0)
+  status                SafeNotifyLeadStatus   @default(new)
+  grade                 String                 @default("C")
+  
+  // Conversation state
+  conversationState     String                 @default("initial")
+  lastIntent            String?
+  isActive              Boolean                @default(true)
+  lastActivity          DateTime               @default(now())
+  
+  // Business data
+  companySize           String?                // small, medium, large
+  budget                String?                // low, medium, high  
+  timeline              String?                // immediate, month, quarter, later
+  authority             String?                // decision_maker, influencer, user
+  currentSolution       String?
+  painPoints            String[]
+  biggestPainPoint      String?
+  noShowRate            String?
+  staffSize             String?
+  
+  // Demo tracking
+  demoScheduledAt       DateTime?
+  demoCompleted         Boolean                @default(false)
+  conversionDate        DateTime?
+  
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  
+  // Relations
+  conversations         SafeNotifyConversation[]
+  demoAppointments      SafeNotifyDemo[]
+  
+  @@map("safenotify_leads")
+}
+
+model SafeNotifyConversation {
+  id              String           @id @default(cuid())
+  leadId          String
+  sessionId       String           @unique
+  
+  // Conversation data
+  messages        Json[]           // {role, content, timestamp, messageSid?}
+  intent          String?          // info_safenotify, demo_request, pricing_safenotify
+  currentStep     String           @default("greeting")
+  isActive        Boolean          @default(true)
+  
+  // Sofia IA specific
+  personality     String           @default("sofia")
+  objectionsHandled String[]
+  contentSent     String[]         // Track multimedia content sent
+  roiCalculated   Boolean          @default(false)
+  
+  // Handoff management
+  handedOff       Boolean          @default(false)
+  handoffReason   String?
+  handoffTime     DateTime?
+  salesRepAssigned String?
+  
+  // Metrics
+  messageCount    Int              @default(0)
+  responseTime    Float?           // Average in seconds
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  lead            SafeNotifyLead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  @@map("safenotify_conversations")
+}
+
+model SafeNotifyDemo {
+  id              String         @id @default(cuid())
+  leadId          String
+  
+  // Demo details
+  scheduledAt     DateTime
+  duration        Int            @default(30) // minutes
+  demoType        String         @default("full") // compliance, roi, full, custom
+  status          String         @default("scheduled") // scheduled, completed, cancelled, no_show
+  
+  // Meeting details
+  zoomLink        String?
+  meetingId       String?
+  calendarLink    String?
+  salesRepEmail   String?
+  
+  // Follow-up tracking
+  reminderSent    Boolean        @default(false)
+  followupSent    Boolean        @default(false)
+  outcome         String?        // converted, follow_up, not_interested, reschedule
+  conversionProbability Int?     // 0-100
+  notes           String?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  lead            SafeNotifyLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  @@map("safenotify_demos")
+}
+
+// Content Library for SafeNotify sales
+model SafeNotifyContent {
+  id                String   @id @default(cuid())
+  type              String   // video, pdf, infographic, calculator
+  category          String   // compliance, roi, cases, product_demo, objection_handling
+  title             String
+  description       String?
+  fileUrl           String
+  thumbnailUrl      String?
+  duration          Int?     // for videos in seconds
+  
+  // Targeting
+  specialty         String[] // which medical specialties this content is for
+  conversationStage String[] // which stages this content works for
+  
+  // Performance metrics
+  usageCount        Int      @default(0)
+  engagementRate    Float?   // 0-100
+  conversionRate    Float?   // 0-100
+  effectivenessScore Float?  // 0-100
+  
+  // A/B testing
+  isVariant         Boolean  @default(false)
+  originalContentId String?
+  variantName       String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("safenotify_content")
+}
+
+// ===== CLIENT FUNNEL SYSTEM =====
+
+model ClientFunnel {
+  id                  String   @id @default(cuid())
+  clientUserId        String   // FK to User (SafeNotify client)
+  
+  // Basic info
+  funnelName          String
+  serviceName         String
+  serviceDescription  String?
+  targetAudience      String
+  industry            String
+  monthlyGoal         Int?
+  servicePrice        Float?
+  
+  // Technical setup
+  whatsappNumber      String?  
+  startCode           String?  // BOTOX_123, RESTAURANT_456
+  
+  // Integration settings
+  calendarIntegration Json?    // Calendly/Google Calendar config
+  paymentIntegration  Json?    // Wompi account config
+  
+  // AI Configuration
+  aiPersonalityConfig Json?    // Personality, tone, speciality context
+  status              String   @default("active") // active, paused, archived
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Relations
+  client              User                    @relation(fields: [clientUserId], references: [id], onDelete: Cascade)
+  content             FunnelContent[]
+  configuration       FunnelConfiguration?
+  leads               ClientFunnelLead[]
+  analytics           FunnelAnalytics[]
+  
+  @@map("client_funnels")
+}
+
+model FunnelContent {
+  id            String       @id @default(cuid())
+  funnelId      String
+  
+  // Content organization
+  stage         String       // contact, education, social_proof, closing
+  contentType   String       // video, image, pdf, calculator
+  title         String
+  description   String?
+  fileUrl       String
+  thumbnailUrl  String?
+  orderInStage  Int          @default(0)
+  
+  // A/B testing
+  isVariant     Boolean      @default(false)
+  variantName   String?
+  
+  // Performance metrics
+  engagementMetrics Json?    // views, clicks, time spent
+  conversionImpact  Float?   // impact on conversion rate
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  funnel        ClientFunnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  
+  @@map("funnel_content")
+}
+
+model FunnelConfiguration {
+  id                    String       @id @default(cuid())
+  funnelId              String       @unique
+  
+  // AI Personality
+  personalityName       String       @default("assistant")
+  specialtyContext      String?      // medical, restaurant, fitness, etc.
+  tone                  String       @default("professional") // professional, friendly, casual
+  language              String       @default("es")
+  
+  // Conversation flow
+  qualifyingQuestions   Json         // Array of questions
+  scoringRules          Json         // Scoring logic
+  objectionResponses    Json         // Common objections and responses
+  
+  // Automation settings
+  automationConfig      Json?        // Follow-up sequences, timing
+  followUpSequence      Json?        // Automated follow-up messages
+  integrationSettings   Json?        // Calendar, payment, notification settings
+  
+  // Business rules
+  autoHandoffScore      Int          @default(80)  // Score threshold for human handoff
+  businessHours         Json?        // Operating hours
+  maxFollowUps          Int          @default(3)
+  
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  
+  funnel                ClientFunnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  
+  @@map("funnel_configurations")
+}
+
+model ClientFunnelLead {
+  id                     String                   @id @default(cuid())
+  funnelId               String
+  
+  // Basic info
+  phone                  String
+  name                   String?
+  email                  String?
+  
+  // Qualification data (dynamic based on funnel)
+  qualificationData      Json?                    // Flexible structure per funnel
+  qualificationScore     Int                      @default(0)
+  grade                  String                   @default("C") // A, B, C
+  status                 ClientFunnelLeadStatus   @default(new)
+  
+  // Conversation tracking
+  currentStage           String                   @default("initial")
+  conversationState      String                   @default("greeting")
+  contentConsumed        Json?                    // Array of content IDs consumed
+  objectionsRaised       Json?                    // Objections and responses
+  
+  // Business metrics
+  conversionProbability  Int?                     // 0-100
+  estimatedValue         Float?                   // Expected revenue from this lead
+  lastActivity           DateTime                 @default(now())
+  
+  // Appointment tracking
+  appointmentScheduled   Boolean                  @default(false)
+  appointmentDate        DateTime?
+  appointmentCompleted   Boolean                  @default(false)
+  conversionDate         DateTime?
+  
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  
+  // Relations
+  funnel                 ClientFunnel             @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  conversations          FunnelConversation[]
+  
+  @@unique([funnelId, phone]) // One lead per phone per funnel
+  @@map("client_funnel_leads")
+}
+
+model FunnelConversation {
+  id                String             @id @default(cuid())
+  funnelLeadId      String
+  sessionId         String             @unique
+  
+  // Conversation data
+  messages          Json[]             // {role, content, timestamp, messageSid?}
+  currentAiContext  Json?              // AI context and state
+  personalityUsed   String
+  
+  // Conversation state
+  intent            String?            // service_info, appointment, pricing, support
+  currentStep       String             @default("greeting")
+  isActive          Boolean            @default(true)
+  
+  // Automation tracking
+  automationTriggered Json?            // Which automations were triggered
+  contentDelivered    String[]         // Content pieces delivered
+  
+  // Handoff management
+  handoffStatus     String             @default("none") // none, requested, completed
+  handoffReason     String?
+  handoffTime       DateTime?
+  
+  // Metrics
+  messageCount      Int                @default(0)
+  averageResponseTime Float?           // In seconds
+  engagementScore   Int?               // 0-100
+  
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  funnelLead        ClientFunnelLead   @relation(fields: [funnelLeadId], references: [id], onDelete: Cascade)
+  
+  @@map("funnel_conversations")
+}
+
+model FunnelAnalytics {
+  id                    String       @id @default(cuid())
+  funnelId              String
+  date                  DateTime     @default(now())
+  
+  // Daily metrics
+  leadsGenerated        Int          @default(0)
+  conversions           Int          @default(0)
+  revenueGenerated      Float        @default(0)
+  
+  // Engagement metrics
+  totalConversations    Int          @default(0)
+  averageEngagementTime Float?       // Minutes
+  contentEngagement     Json?        // Per content piece engagement
+  
+  // Conversion funnel
+  stageConversionRates  Json?        // Conversion rates between stages
+  
+  // Performance indicators
+  costPerLead           Float?
+  costPerConversion     Float?
+  returnOnInvestment    Float?       // ROI percentage
+  
+  // Optimization insights
+  topPerformingContent  Json?        // Best performing content pieces
+  commonDropOffPoints   Json?        // Where leads typically drop off
+  optimizationSuggestions Json?      // AI-generated suggestions
+  
+  createdAt             DateTime     @default(now())
+  
+  funnel                ClientFunnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  
+  @@unique([funnelId, date]) // One record per funnel per day
+  @@map("funnel_analytics")
+}
+
+// AI Settings and Configuration
+model AISettings {
+  id                  String   @id @default(cuid())
+  
+  // AI Provider Configuration
+  provider            String   @default("openai") // openai, anthropic
+  model               String   @default("gpt-4")
+  temperature         Float    @default(0.7)
+  maxTokens          Int      @default(500)
+  
+  // SafeNotify Sales Configuration
+  sofiaPersonality    Json?    // Sofia's personality configuration
+  salesPhoneNumber    String?  // Dedicated number for SafeNotify sales
+  
+  // Global settings
+  businessHours       Json?    // Global business hours
+  globalRateLimit     Int      @default(60) // Messages per minute across all funnels
+  
+  // Content settings
+  defaultGreeting     String   @default("¡Hola! ¿En qué puedo ayudarte hoy?")
+  handoffMessage      String   @default("Te voy a conectar con uno de nuestros especialistas.")
+  
+  // Optimization settings
+  autoOptimization    Boolean  @default(true)
+  abTestingEnabled    Boolean  @default(true)
+  analyticsRetention  Int      @default(365) // Days to retain analytics
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@map("ai_settings")
 }
