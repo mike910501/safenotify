@@ -9,7 +9,7 @@ import {
   ThumbsUp, ThumbsDown, Play, RefreshCw, Search,
   Filter, Calendar, User, Hash, ChevronDown, 
   ChevronUp, ExternalLink, Shield, TrendingUp,
-  Sparkles, Zap, Trash2, Plus, Minus
+  Sparkles, Zap, Trash2, Plus, Minus, Edit
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -67,7 +67,9 @@ export default function AdminPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showActivateModal, setShowActivateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [templateToActivate, setTemplateToActivate] = useState<Template | null>(null)
+  const [templateToEdit, setTemplateToEdit] = useState<Template | null>(null)
 
   // Verificar permisos de admin
   useEffect(() => {
@@ -217,6 +219,14 @@ export default function AdminPage() {
     if (template) {
       setTemplateToActivate(template)
       setShowActivateModal(true)
+    }
+  }
+
+  const handleEditTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId)
+    if (template) {
+      setTemplateToEdit(template)
+      setShowEditModal(true)
     }
   }
 
@@ -772,6 +782,14 @@ export default function AdminPage() {
                         )}
 
                         <Button
+                          onClick={() => handleEditTemplate(template.id)}
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <Edit size={18} className="mr-2" />
+                          ✏️ Editar
+                        </Button>
+
+                        <Button
                           onClick={() => handleDeleteTemplate(template.id)}
                           disabled={actionLoading === template.id + '-delete'}
                           className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -833,6 +851,23 @@ export default function AdminPage() {
         toast={toast}
         setActionLoading={setActionLoading}
         actionLoading={actionLoading}
+      />
+
+      {/* Modal de Edición de Plantilla */}
+      <EditTemplateModal 
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setTemplateToEdit(null)
+        }}
+        template={templateToEdit}
+        onSuccess={() => {
+          setShowEditModal(false)
+          setTemplateToEdit(null)
+          fetchTemplates()
+          fetchStats()
+        }}
+        toast={toast}
       />
     </div>
   )
@@ -1610,6 +1645,539 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                   <>
                     <Sparkles size={18} className="mr-2" />
                     Crear Plantilla
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Modal Component for Editing Templates
+function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
+  isOpen: boolean
+  onClose: () => void
+  template: Template | null
+  onSuccess: () => void
+  toast: any
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    content: '',
+    category: 'general',
+    variables: '',
+    isPublic: false,
+    language: 'es',
+    businessCategory: 'UTILITY',
+    headerText: '',
+    footerText: '',
+    twilioTemplateId: '',
+    twilioContentSid: '',
+    hasInteractiveButtons: false,
+    templateType: 'TEXT',
+    status: 'pending'
+  })
+  const [buttons, setButtons] = useState([
+    { type: 'QUICK_REPLY', text: 'Confirmar' },
+    { type: 'QUICK_REPLY', text: 'Cancelar' }
+  ])
+  const [loading, setLoading] = useState(false)
+
+  // Load template data when modal opens
+  useEffect(() => {
+    if (template && isOpen) {
+      setFormData({
+        name: template.name || '',
+        content: template.content || '',
+        category: template.category || 'general',
+        variables: template.variables?.join(', ') || '',
+        isPublic: false, // Will be handled by backend based on template.userId
+        language: template.language || 'es',
+        businessCategory: template.businessCategory || 'UTILITY',
+        headerText: template.headerText || '',
+        footerText: template.footerText || '',
+        twilioTemplateId: template.twilioTemplateId || '',
+        twilioContentSid: template.twilioContentSid || '',
+        hasInteractiveButtons: false, // Will detect from variablesMapping
+        templateType: 'TEXT',
+        status: template.status
+      })
+
+      // Load existing buttons if any
+      if (template.variablesMapping && typeof template.variablesMapping === 'object') {
+        const existingButtons = template.variablesMapping.buttonsConfig
+        if (Array.isArray(existingButtons) && existingButtons.length > 0) {
+          setButtons(existingButtons)
+          setFormData(prev => ({
+            ...prev,
+            hasInteractiveButtons: true,
+            templateType: 'INTERACTIVE'
+          }))
+        }
+      }
+    }
+  }, [template, isOpen])
+
+  // Button management functions
+  const addButton = () => {
+    if (buttons.length < 3) {
+      setButtons([...buttons, { type: 'QUICK_REPLY', text: '' }])
+    }
+  }
+
+  const removeButton = (index: number) => {
+    if (buttons.length > 1) {
+      const newButtons = buttons.filter((_, i) => i !== index)
+      setButtons(newButtons)
+    }
+  }
+
+  const updateButton = (index: number, field: string, value: string) => {
+    const newButtons = [...buttons]
+    newButtons[index] = { ...newButtons[index], [field]: value }
+    setButtons(newButtons)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!template) return
+    
+    setLoading(true)
+
+    try {
+      const token = localStorage.getItem('token')
+      
+      // Parse variables and buttons
+      let variables = []
+      if (formData.variables.trim()) {
+        variables = formData.variables.split(',').map(v => v.trim()).filter(v => v)
+      }
+
+      let buttonsConfig = null
+      if (formData.hasInteractiveButtons) {
+        // Validate buttons
+        const validButtons = buttons.filter(btn => btn.text.trim() !== '')
+        if (validButtons.length === 0) {
+          toast.error('Error en configuración de botones', 'Debes agregar al menos un botón')
+          return
+        }
+        if (validButtons.length > 3) {
+          toast.error('Error en configuración de botones', 'Máximo 3 botones permitidos')
+          return
+        }
+        buttonsConfig = validButtons
+      }
+
+      const payload = {
+        ...formData,
+        variables,
+        buttonsConfig
+      }
+
+      const response = await fetch(`${API_URL}/api/admin/templates/${template.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('Plantilla actualizada exitosamente', 'Los cambios han sido guardados correctamente')
+        onSuccess()
+      } else {
+        toast.error('Error actualizando plantilla', data.error || 'No se pudo actualizar la plantilla')
+      }
+    } catch (error) {
+      console.error('Error updating template:', error)
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen || !template) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                Editar Plantilla
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Modificando: "{template.name}"
+              </p>
+            </div>
+            <Button 
+              onClick={onClose}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-3 rounded-lg"
+              disabled={loading}
+            >
+              <XCircle size={24} />
+            </Button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Información Básica */}
+              <Card className="p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-primary-600" />
+                  Información Básica
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre de la Plantilla *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="ej. Confirmación de Cita"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Categoría
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    >
+                      <option value="general">General</option>
+                      <option value="appointment_update">Actualización de Citas</option>
+                      <option value="payment_reminder">Recordatorio de Pago</option>
+                      <option value="service_notification">Notificación de Servicio</option>
+                      <option value="marketing">Marketing</option>
+                      <option value="support">Soporte</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Variables (separadas por comas)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.variables}
+                      onChange={(e) => setFormData({...formData, variables: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="ej. nombre, fecha, hora, servicio"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Estas variables se pueden usar como {`{{1}}`}, {`{{2}}`}, etc. en el mensaje
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Estado
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    >
+                      <option value="ai_pending">🤖 Validación IA</option>
+                      <option value="pending">⏳ Pendiente Revisión</option>
+                      <option value="approved">✅ Aprobada</option>
+                      <option value="rejected">❌ Rechazada</option>
+                      <option value="active">🚀 Activa</option>
+                    </select>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Configuración WhatsApp */}
+              <Card className="p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-green-600" />
+                  Configuración WhatsApp
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Template ID de Twilio
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.twilioTemplateId}
+                      onChange={(e) => setFormData({...formData, twilioTemplateId: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="HX..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Content SID
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.twilioContentSid}
+                      onChange={(e) => setFormData({...formData, twilioContentSid: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="HX..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Idioma
+                      </label>
+                      <select
+                        value={formData.language}
+                        onChange={(e) => setFormData({...formData, language: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      >
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                        <option value="pt">Português</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Categoría Business
+                      </label>
+                      <select
+                        value={formData.businessCategory}
+                        onChange={(e) => setFormData({...formData, businessCategory: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      >
+                        <option value="UTILITY">Utilidad</option>
+                        <option value="MARKETING">Marketing</option>
+                        <option value="AUTHENTICATION">Autenticación</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Header Text (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.headerText}
+                      onChange={(e) => setFormData({...formData, headerText: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="Texto del encabezado"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Footer Text (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.footerText}
+                      onChange={(e) => setFormData({...formData, footerText: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      placeholder="Texto del pie"
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Contenido del Mensaje */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <MessageSquare className="w-5 h-5 mr-2 text-accent-600" />
+                Contenido del Mensaje
+              </h3>
+              
+              <textarea
+                required
+                value={formData.content}
+                onChange={(e) => setFormData({...formData, content: e.target.value})}
+                rows={6}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                placeholder="Hola {`{{1}}`}, tu cita para {`{{2}}`} está confirmada para el {`{{3}}`} a las {`{{4}}`}. ¡Te esperamos!"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Usa {`{{1}}`}, {`{{2}}`}, {`{{3}}`}, etc. para las variables. Corresponden al orden de las variables definidas arriba.
+              </p>
+            </Card>
+
+            {/* Botones Interactivos */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <Zap className="w-5 h-5 mr-2 text-purple-600" />
+                Botones Interactivos (Opcional)
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="hasButtons"
+                    checked={formData.hasInteractiveButtons}
+                    onChange={(e) => setFormData({...formData, hasInteractiveButtons: e.target.checked})}
+                    className="mr-2"
+                  />
+                  <label htmlFor="hasButtons" className="text-sm font-medium text-gray-700">
+                    Esta plantilla tiene botones interactivos
+                  </label>
+                </div>
+
+                {formData.hasInteractiveButtons && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de Plantilla
+                      </label>
+                      <select
+                        value={formData.templateType}
+                        onChange={(e) => setFormData({...formData, templateType: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                      >
+                        <option value="TEXT">Texto</option>
+                        <option value="INTERACTIVE">Interactiva</option>
+                        <option value="MEDIA">Media</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Botones de Respuesta
+                        </label>
+                        <Button
+                          type="button"
+                          onClick={addButton}
+                          disabled={buttons.length >= 3}
+                          className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={14} className="mr-1" />
+                          Agregar Botón
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {buttons.map((button, index) => (
+                          <div key={index} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Tipo
+                                  </label>
+                                  <select
+                                    value={button.type}
+                                    onChange={(e) => updateButton(index, 'type', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-primary-500"
+                                  >
+                                    <option value="QUICK_REPLY">Respuesta Rápida</option>
+                                    <option value="URL">URL</option>
+                                  </select>
+                                </div>
+                                
+                                <div className="col-span-2">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    {button.type === 'URL' ? 'Texto del botón' : 'Texto de respuesta'}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={button.text}
+                                    onChange={(e) => updateButton(index, 'text', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-primary-500"
+                                    placeholder={button.type === 'URL' ? 'ej. Ver más' : 'ej. Confirmar'}
+                                    maxLength={20}
+                                  />
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    {button.text.length}/20 caracteres
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {button.type === 'URL' && (
+                                <div className="mt-3">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    URL de destino
+                                  </label>
+                                  <input
+                                    type="url"
+                                    value={button.url || ''}
+                                    onChange={(e) => updateButton(index, 'url', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-primary-500"
+                                    placeholder="https://ejemplo.com"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {buttons.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeButton(index)}
+                                className="bg-red-100 hover:bg-red-200 text-red-700 p-2 flex-shrink-0"
+                              >
+                                <Minus size={16} />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-xs text-blue-700">
+                          <strong>💡 Consejos:</strong><br/>
+                          • Máximo 3 botones por plantilla<br/>
+                          • Textos cortos y claros (máx. 20 caracteres)<br/>
+                          • Los botones de respuesta rápida envían el texto como respuesta<br/>
+                          • Los botones URL abren enlaces externos
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {/* Botones de Acción */}
+            <div className="flex justify-end space-x-4 pt-6 border-t">
+              <Button
+                type="button"
+                onClick={onClose}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-3"
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+              
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={18} className="mr-2 animate-spin" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <Edit size={18} className="mr-2" />
+                    Actualizar Plantilla
                   </>
                 )}
               </Button>

@@ -489,6 +489,148 @@ router.get('/whatsapp-config', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Actualizar plantilla
+router.put('/templates/:id', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      content,
+      category,
+      variables,
+      language,
+      businessCategory,
+      headerText,
+      footerText,
+      twilioTemplateId,
+      twilioContentSid,
+      buttonsConfig,
+      status
+    } = req.body;
+
+    // Verificar que la plantilla existe
+    const existingTemplate = await prisma.template.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true }
+        }
+      }
+    });
+
+    if (!existingTemplate) {
+      return res.status(404).json({
+        success: false,
+        error: 'Plantilla no encontrada'
+      });
+    }
+
+    // Validaciones básicas
+    if (!name || !content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nombre y contenido son requeridos'
+      });
+    }
+
+    // Preparar datos para actualización
+    const updateData = {
+      name: name.trim(),
+      content: content.trim(),
+      category: category || 'general',
+      variables: Array.isArray(variables) ? variables : [],
+      language: language || 'es',
+      businessCategory: businessCategory || 'UTILITY',
+      headerText: headerText || null,
+      footerText: footerText || null,
+      twilioTemplateId: twilioTemplateId || null,
+      twilioContentSid: twilioContentSid || null,
+      status: status || existingTemplate.status,
+      updatedAt: new Date()
+    };
+
+    // Manejar botones interactivos si están presentes
+    if (buttonsConfig && Array.isArray(buttonsConfig) && buttonsConfig.length > 0) {
+      // Validar botones
+      const validButtons = buttonsConfig.filter(btn => 
+        btn.text && btn.text.trim() !== '' && btn.type
+      );
+
+      if (validButtons.length > 3) {
+        return res.status(400).json({
+          success: false,
+          error: 'Máximo 3 botones permitidos'
+        });
+      }
+
+      // Validar cada botón
+      for (const button of validButtons) {
+        if (!button.text || button.text.length > 20) {
+          return res.status(400).json({
+            success: false,
+            error: 'Texto del botón debe tener máximo 20 caracteres'
+          });
+        }
+
+        if (button.type === 'URL' && !button.url) {
+          return res.status(400).json({
+            success: false,
+            error: 'URL es requerida para botones de tipo URL'
+          });
+        }
+      }
+
+      updateData.hasInteractiveButtons = true;
+      updateData.buttonsConfig = validButtons;
+      updateData.templateType = 'INTERACTIVE';
+      updateData.variablesMapping = { buttonsConfig: validButtons };
+    } else {
+      updateData.hasInteractiveButtons = false;
+      updateData.buttonsConfig = null;
+      updateData.templateType = 'TEXT';
+      updateData.variablesMapping = null;
+    }
+
+    // Si el estado cambió a 'active', verificar que tenga twilioTemplateId
+    if (status === 'active' && !twilioTemplateId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Template ID de Twilio es requerido para activar la plantilla'
+      });
+    }
+
+    // Actualizar la plantilla
+    const updatedTemplate = await prisma.template.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: {
+          select: { id: true, name: true, email: true }
+        }
+      }
+    });
+
+    console.log(`Template ${id} updated by admin ${req.user.id}:`, {
+      name: updatedTemplate.name,
+      status: updatedTemplate.status,
+      hasButtons: updatedTemplate.hasInteractiveButtons
+    });
+
+    res.json({
+      success: true,
+      message: 'Plantilla actualizada exitosamente',
+      template: updatedTemplate
+    });
+
+  } catch (error) {
+    console.error('Error updating template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
 // Eliminar plantilla
 router.delete('/templates/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
