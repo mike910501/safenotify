@@ -13,6 +13,8 @@ const paymentRoutes = require('./routes/payments');
 const adminRoutes = require('./routes/admin');
 const templatesAIRoutes = require('./routes/templatesAI');
 const campaignProgressRoutes = require('./routes/campaignProgress');
+const scheduledCampaignsRoutes = require('./routes/scheduledCampaigns');
+const schedulerService = require('./services/schedulerService');
 
 // Import WebSocket and Queue systems
 const CampaignProgressTracker = require('./websocket/campaignProgress');
@@ -2155,6 +2157,9 @@ app.use('/api/progress', campaignProgressRoutes);
 // Mount templates AI routes
 app.use('/api/templates-ai', templatesAIRoutes);
 
+// Mount scheduled campaigns routes
+app.use('/api/scheduled-campaigns', scheduledCampaignsRoutes);
+
 // Export user data endpoint
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {
   try {
@@ -2287,7 +2292,16 @@ server.listen(PORT, async () => {
   console.log(`📋 Templates: http://localhost:${PORT}/api/templates`);
   console.log(`💰 Payments: http://localhost:${PORT}/api/payments`);
   console.log(`📊 Progress Tracking: http://localhost:${PORT}/api/progress`);
+  console.log(`📅 Scheduled Campaigns: http://localhost:${PORT}/api/scheduled-campaigns`);
   console.log(`📡 WebSocket Server: Initialized for real-time updates`);
+  
+  // Initialize scheduler service
+  try {
+    await schedulerService.initialize();
+    console.log(`⏰ Scheduler Service: Initialized for message scheduling`);
+  } catch (error) {
+    console.error('❌ Failed to initialize Scheduler Service:', error);
+  }
   
   // Check if templates exist
   try {

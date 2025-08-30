@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
   Home, Send, FileText, Clock, Bot, Settings, HelpCircle, 
-  ChevronLeft, ChevronRight, Shield, User, LogOut, CreditCard, UserCog, MessageSquare
+  ChevronLeft, ChevronRight, Shield, User, LogOut, CreditCard, UserCog, MessageSquare,
+  BarChart3
 } from 'lucide-react'
 import { AnimatedIcon } from '@/components/ui/animated-icon'
 import { UpgradeCta } from '@/components/ui/upgrade-cta'
@@ -24,6 +25,7 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Enviar Mensajes', href: '/dashboard/send', icon: Send },
     { name: 'Template Studio', href: '/dashboard/templates', icon: FileText, isTemplateStudio: true },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, isAnalytics: true },
     { name: 'Historial', href: '/dashboard/history', icon: Clock },
     { name: 'Planes y Precios', href: '/dashboard/upgrade', icon: CreditCard },
     { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
@@ -83,6 +85,7 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
           const isUpgradeLink = item.href === '/dashboard/upgrade'
           const isAdminLink = item.href === '/admin'
           const isTemplateStudio = (item as any).isTemplateStudio
+          const isAnalytics = (item as any).isAnalytics
           const hasBadge = (item as any).badge
           
           return (
@@ -107,6 +110,7 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                   isAdminLink ? 'text-red-600 group-hover:text-white' :
                   isUpgradeLink ? 'text-purple-600 group-hover:text-white' :
                   isTemplateStudio ? 'text-purple-500 group-hover:text-white' :
+                  isAnalytics ? 'text-blue-500 group-hover:text-white' :
                   'text-gray-400 group-hover:text-white'
                 } transition-colors duration-200 flex-shrink-0`}
                 animation={isActive(item.href) ? 'pulse' : undefined}
@@ -115,6 +119,10 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                 <span className="ml-3 animate-fade-in">
                   {isTemplateStudio ? (
                     <span className="bg-gradient-to-r from-purple-500 via-pink-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
+                      {item.name}
+                    </span>
+                  ) : isAnalytics ? (
+                    <span className="bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
                       {item.name}
                     </span>
                   ) : (
