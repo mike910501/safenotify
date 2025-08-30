@@ -10,6 +10,8 @@ const path = require('path');
 
 // Import routes and services
 const paymentRoutes = require('./routes/payments');
+const whatsappTemplatesRoutes = require('./routes/whatsappTemplates');
+const whatsappConfigRoutes = require('./routes/whatsappConfig');
 
 // Database connection
 const { PrismaClient } = require('@prisma/client');
@@ -2431,6 +2433,10 @@ process.on('beforeExit', async () => {
 
 // Mount payment routes
 app.use('/api/payments', paymentRoutes);
+
+// Mount WhatsApp Business Template routes
+app.use('/api/whatsapp-templates', whatsappTemplatesRoutes);
+app.use('/api/whatsapp-config', whatsappConfigRoutes);
 
 // Export user data endpoint
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {

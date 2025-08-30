@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
   Home, Send, FileText, Clock, Bot, Settings, HelpCircle, 
-  ChevronLeft, ChevronRight, Shield, User, LogOut, CreditCard, UserCog
+  ChevronLeft, ChevronRight, Shield, User, LogOut, CreditCard, UserCog, MessageSquare
 } from 'lucide-react'
 import { AnimatedIcon } from '@/components/ui/animated-icon'
 import { UpgradeCta } from '@/components/ui/upgrade-cta'
@@ -24,6 +24,7 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Enviar Mensajes', href: '/dashboard/send', icon: Send },
     { name: 'Template Studio', href: '/dashboard/templates', icon: FileText, isTemplateStudio: true },
+    { name: 'WhatsApp Business', href: '/dashboard/whatsapp-templates', icon: MessageSquare, badge: 'Beta', badgeColor: 'bg-green-500' },
     { name: 'Historial', href: '/dashboard/history', icon: Clock },
     { name: 'Planes y Precios', href: '/dashboard/upgrade', icon: CreditCard },
     { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
@@ -83,6 +84,8 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
           const isUpgradeLink = item.href === '/dashboard/upgrade'
           const isAdminLink = item.href === '/admin'
           const isTemplateStudio = (item as any).isTemplateStudio
+          const isWhatsAppBusiness = item.href === '/dashboard/whatsapp-templates'
+          const hasBadge = (item as any).badge
           
           return (
             <Link
@@ -106,6 +109,7 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                   isAdminLink ? 'text-red-600 group-hover:text-white' :
                   isUpgradeLink ? 'text-purple-600 group-hover:text-white' :
                   isTemplateStudio ? 'text-purple-500 group-hover:text-white' :
+                  isWhatsAppBusiness ? 'text-green-500 group-hover:text-white' :
                   'text-gray-400 group-hover:text-white'
                 } transition-colors duration-200 flex-shrink-0`}
                 animation={isActive(item.href) ? 'pulse' : undefined}
@@ -122,6 +126,11 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                   {isUpgradeLink && (
                     <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full group-hover:bg-white group-hover:text-purple-700">
                       💎
+                    </span>
+                  )}
+                  {isWhatsAppBusiness && hasBadge && (
+                    <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full group-hover:bg-white group-hover:text-green-700">
+                      {(item as any).badge}
                     </span>
                   )}
                 </span>

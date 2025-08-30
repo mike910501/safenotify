@@ -20,10 +20,12 @@ model User {
   messagesUsed  Int        @default(0)
   messagesLimit Int        @default(10)
   apiKeys       ApiKey[]
-  campaigns     Campaign[]
-  payments      Payment[]
-  templates     Template[]
-  passwordResets PasswordReset[]
+  campaigns           Campaign[]
+  payments            Payment[]
+  templates           Template[]
+  passwordResets      PasswordReset[]
+  whatsappTemplates   WhatsAppTemplate[]
+  whatsappCampaigns   WhatsAppCampaign[]
 
   @@map("users")
 }
@@ -130,4 +132,112 @@ model PasswordReset {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_resets")
+}
+
+// WhatsApp Business Templates Aprobados por Meta
+model WhatsAppTemplate {
+  id               String   @id @default(cuid())
+  name             String   // Nombre del template en Meta
+  category         String   @default("UTILITY") // MARKETING, UTILITY, AUTHENTICATION
+  language         String   @default("es") // Idioma del template
+  status           String   @default("PENDING") // PENDING, APPROVED, REJECTED, DISABLED
+  
+  // Contenido del template
+  headerText       String? // Header si aplica
+  bodyText         String  // Cuerpo principal con {{1}}, {{2}}
+  footerText       String? // Footer si aplica
+  
+  // Metadata
+  variablesCount   Int      @default(0) // Número de variables {{1}}, {{2}}, etc.
+  variablesMapping Json?    // {"1": "nombre", "2": "fecha", "3": "hora"}
+  
+  // Twilio Integration
+  twilioContentSid String?  @unique // SID del Content Template de Twilio
+  
+  // Tracking
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String?
+  creator          User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  
+  // Relations
+  campaigns        WhatsAppCampaign[]
+  
+  @@unique([name, language])
+  @@map("whatsapp_templates")
+}
+
+// Configuración global de WhatsApp
+model WhatsAppConfig {
+  id                    String   @id @default(cuid())
+  twilioAccountSid      String
+  twilioAuthToken       String   // Encriptado
+  whatsappNumber        String
+  businessAccountId     String?  // Meta Business Account ID
+  
+  // Configuración por defecto
+  rateLimitPerMinute    Int      @default(20)
+  isActive              Boolean  @default(true)
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("whatsapp_config")
+}
+
+// Campaigns usando WhatsApp Templates
+model WhatsAppCampaign {
+  id                String           @id @default(cuid())
+  name              String
+  templateId        String
+  template          WhatsAppTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  // Variables mapping para CSV
+  csvVariableMapping Json             // {"1": "column_name", "2": "other_column"}
+  defaultValues      Json?            // Valores por defecto para variables faltantes
+  
+  // Campaign status
+  status            String           @default("draft") // draft, scheduled, sending, completed, failed
+  totalContacts     Int              @default(0)
+  sentCount         Int              @default(0)
+  errorCount        Int              @default(0)
+  
+  // Timing
+  scheduledAt       DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  // Relations
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages          WhatsAppMessage[]
+  
+  @@map("whatsapp_campaigns")
+}
+
+// Logs de mensajes enviados con WhatsApp Templates
+model WhatsAppMessage {
+  id                String           @id @default(cuid())
+  campaignId        String
+  campaign          WhatsAppCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Message details
+  phoneNumber       String
+  messageSid        String?          // Twilio Message SID
+  status            String           @default("queued") // queued, sent, delivered, failed, undelivered
+  errorCode         String?
+  errorMessage      String?
+  
+  // Template variables used
+  variablesUsed     Json             // Variables reales enviadas
+  
+  // Timing
+  sentAt            DateTime         @default(now())
+  deliveredAt       DateTime?
+  updatedAt         DateTime         @updatedAt
+  
+  @@map("whatsapp_messages")
 }
