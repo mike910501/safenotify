@@ -9,7 +9,7 @@ import {
   ThumbsUp, ThumbsDown, Play, RefreshCw, Search,
   Filter, Calendar, User, Hash, ChevronDown, 
   ChevronUp, ExternalLink, Shield, TrendingUp,
-  Sparkles, Zap, Trash2
+  Sparkles, Zap, Trash2, Plus, Minus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -877,7 +877,31 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
     templateType: 'TEXT',
     buttonsConfig: ''
   })
+  const [buttons, setButtons] = useState([
+    { type: 'QUICK_REPLY', text: 'Confirmar' },
+    { type: 'QUICK_REPLY', text: 'Cancelar' }
+  ])
   const [loading, setLoading] = useState(false)
+
+  // Button management functions
+  const addButton = () => {
+    if (buttons.length < 3) {
+      setButtons([...buttons, { type: 'QUICK_REPLY', text: '' }])
+    }
+  }
+
+  const removeButton = (index: number) => {
+    if (buttons.length > 1) {
+      const newButtons = buttons.filter((_, i) => i !== index)
+      setButtons(newButtons)
+    }
+  }
+
+  const updateButton = (index: number, field: string, value: string) => {
+    const newButtons = [...buttons]
+    newButtons[index] = { ...newButtons[index], [field]: value }
+    setButtons(newButtons)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -893,13 +917,18 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
       }
 
       let buttonsConfig = null
-      if (formData.hasInteractiveButtons && formData.buttonsConfig.trim()) {
-        try {
-          buttonsConfig = JSON.parse(formData.buttonsConfig)
-        } catch (e) {
-          toast.error('Error en configuración de botones', 'El JSON de botones no es válido')
+      if (formData.hasInteractiveButtons) {
+        // Validate buttons
+        const validButtons = buttons.filter(btn => btn.text.trim() !== '')
+        if (validButtons.length === 0) {
+          toast.error('Error en configuración de botones', 'Debes agregar al menos un botón')
           return
         }
+        if (validButtons.length > 3) {
+          toast.error('Error en configuración de botones', 'Máximo 3 botones permitidos')
+          return
+        }
+        buttonsConfig = validButtons
       }
 
       const payload = {
@@ -939,6 +968,10 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
           templateType: 'TEXT',
           buttonsConfig: ''
         })
+        setButtons([
+          { type: 'QUICK_REPLY', text: 'Confirmar' },
+          { type: 'QUICK_REPLY', text: 'Cancelar' }
+        ])
       } else {
         toast.error('Error creando plantilla', data.error || 'No se pudo crear la plantilla')
       }
@@ -1195,19 +1228,96 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Configuración de Botones (JSON)
-                      </label>
-                      <textarea
-                        value={formData.buttonsConfig}
-                        onChange={(e) => setFormData({...formData, buttonsConfig: e.target.value})}
-                        rows={4}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors font-mono text-sm"
-                        placeholder='[{"type": "QUICK_REPLY", "text": "Confirmar"}, {"type": "QUICK_REPLY", "text": "Cancelar"}]'
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Formato JSON para configurar botones de respuesta rápida o URL
-                      </p>
+                      <div className="flex justify-between items-center mb-3">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Botones de Respuesta
+                        </label>
+                        <Button
+                          type="button"
+                          onClick={addButton}
+                          disabled={buttons.length >= 3}
+                          className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={14} className="mr-1" />
+                          Agregar Botón
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {buttons.map((button, index) => (
+                          <div key={index} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Tipo
+                                  </label>
+                                  <select
+                                    value={button.type}
+                                    onChange={(e) => updateButton(index, 'type', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-primary-500"
+                                  >
+                                    <option value="QUICK_REPLY">Respuesta Rápida</option>
+                                    <option value="URL">URL</option>
+                                  </select>
+                                </div>
+                                
+                                <div className="col-span-2">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    {button.type === 'URL' ? 'Texto del botón' : 'Texto de respuesta'}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={button.text}
+                                    onChange={(e) => updateButton(index, 'text', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-primary-500"
+                                    placeholder={button.type === 'URL' ? 'ej. Ver más' : 'ej. Confirmar'}
+                                    maxLength={20}
+                                  />
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    {button.text.length}/20 caracteres
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {button.type === 'URL' && (
+                                <div className="mt-3">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    URL de destino
+                                  </label>
+                                  <input
+                                    type="url"
+                                    value={button.url || ''}
+                                    onChange={(e) => updateButton(index, 'url', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-primary-500"
+                                    placeholder="https://ejemplo.com"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {buttons.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeButton(index)}
+                                className="bg-red-100 hover:bg-red-200 text-red-700 p-2 flex-shrink-0"
+                              >
+                                <Minus size={16} />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-xs text-blue-700">
+                          <strong>💡 Consejos:</strong><br/>
+                          • Máximo 3 botones por plantilla<br/>
+                          • Textos cortos y claros (máx. 20 caracteres)<br/>
+                          • Los botones de respuesta rápida envían el texto como respuesta<br/>
+                          • Los botones URL abren enlaces externos
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}
