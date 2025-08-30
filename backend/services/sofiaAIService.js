@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const safenotifyDemoService = require('./safenotifyDemoService');
+const openaiService = require('./openaiService');
 const prisma = new PrismaClient();
 
 /**
@@ -342,59 +343,229 @@ function detectIntent(messageText, currentState) {
 }
 
 /**
- * Generate Sofia's response based on conversation context
+ * Generate Sofia's response using REAL AI with context
  */
 async function generateSofiaResponse(conversation, messageText, intent) {
   const lead = conversation.lead;
   const currentStep = conversation.currentStep || CONVERSATION_STATES.GREETING_CLINIC;
 
-  console.log('🤖 Generating Sofia response for step:', currentStep, 'intent:', intent);
+  console.log('🤖 Generating REAL AI response for step:', currentStep, 'intent:', intent);
 
-  let response = {
-    message: "",
-    nextStep: currentStep,
-    leadUpdates: {},
-    leadScore: lead.qualificationScore,
-    shouldSendContent: false,
-    contentToSend: null,
-    handoffRequired: false
-  };
+  try {
+    // Prepare lead context for AI
+    const leadContext = {
+      specialty: lead.specialty,
+      monthlyPatients: lead.monthlyPatients,
+      currentSystem: lead.currentSystem,
+      whatsappUsage: lead.whatsappUsage,
+      qualificationScore: lead.qualificationScore,
+      painPoints: lead.painPoints,
+      grade: lead.grade,
+      conversationState: currentStep
+    };
 
-  switch (currentStep) {
-    case CONVERSATION_STATES.GREETING_CLINIC:
-      response = await handleGreetingClinic(messageText, intent, lead);
-      break;
+    // Get conversation history
+    const conversationHistory = conversation.messages || [];
 
-    case CONVERSATION_STATES.QUALIFICATION_BASIC:
-      response = await handleQualificationBasic(messageText, intent, lead);
-      break;
+    // Generate natural AI response
+    const aiResponse = await openaiService.generateNaturalResponse(
+      conversationHistory,
+      leadContext,
+      intent
+    );
 
-    case CONVERSATION_STATES.RISK_EDUCATION:
-      response = await handleRiskEducation(messageText, intent, lead);
-      break;
+    if (!aiResponse.success) {
+      console.log('⚠️ AI failed, using fallback logic');
+      return await handleFallbackResponse(messageText, intent, lead, currentStep);
+    }
 
-    case CONVERSATION_STATES.ROI_CALCULATION:
-      response = await handleROICalculation(messageText, intent, lead);
-      break;
+    // Analyze conversation for next steps
+    const sentiment = await openaiService.analyzeConversationSentiment(conversationHistory);
+    
+    // Determine next step and actions based on AI response and sentiment
+    const nextStepAnalysis = await determineNextStep(
+      aiResponse.message,
+      leadContext,
+      sentiment,
+      currentStep
+    );
 
-    case CONVERSATION_STATES.CASE_STUDIES:
-      response = await handleCaseStudies(messageText, intent, lead);
-      break;
+    // Update lead score based on conversation progress
+    const updatedScore = await updateLeadScore(lead, messageText, intent, sentiment);
 
-    case CONVERSATION_STATES.DEMO_INTEREST:
-      response = await handleDemoInterest(messageText, intent, lead);
-      break;
+    console.log('✅ AI Response generated:', aiResponse.message.substring(0, 50) + '...');
+    console.log('📊 Updated score:', updatedScore);
+    console.log('📋 Next step:', nextStepAnalysis.nextStep);
 
-    case CONVERSATION_STATES.OBJECTION_HANDLING:
-      response = await handleObjectionHandling(messageText, intent, lead);
-      break;
+    return {
+      message: aiResponse.message,
+      nextStep: nextStepAnalysis.nextStep,
+      leadUpdates: {
+        qualificationScore: updatedScore,
+        grade: calculateGrade(updatedScore),
+        lastIntent: intent,
+        ...nextStepAnalysis.leadUpdates
+      },
+      leadScore: updatedScore,
+      shouldSendContent: nextStepAnalysis.shouldSendContent,
+      contentToSend: nextStepAnalysis.contentToSend,
+      handoffRequired: nextStepAnalysis.handoffRequired,
+      aiGenerated: true,
+      tokens_used: aiResponse.tokens_used
+    };
 
-    default:
-      response.message = "Entiendo tu consulta. Como especialista en comunicación médica, te puedo ayudar a entender cómo SafeNotify protege tu clínica. ¿Cuál es tu especialidad?";
-      response.nextStep = CONVERSATION_STATES.QUALIFICATION_BASIC;
+  } catch (error) {
+    console.error('❌ AI Response generation failed:', error);
+    return await handleFallbackResponse(messageText, intent, lead, currentStep);
+  }
+}
+
+/**
+ * Determine next step based on AI response and context
+ */
+async function determineNextStep(aiMessage, leadContext, sentiment, currentStep) {
+  const score = leadContext.qualificationScore || 0;
+  
+  // High engagement + high score = demo interest
+  if (sentiment.engagement === 'high' && score >= 60) {
+    return {
+      nextStep: CONVERSATION_STATES.DEMO_INTEREST,
+      shouldSendContent: true,
+      contentToSend: 'case_study_medical',
+      handoffRequired: score >= 80,
+      leadUpdates: { conversationState: CONVERSATION_STATES.DEMO_INTEREST }
+    };
   }
 
-  return response;
+  // Compliance concerns detected
+  if (sentiment.objections?.includes('legal') || aiMessage.includes('legal') || aiMessage.includes('multa')) {
+    return {
+      nextStep: CONVERSATION_STATES.RISK_EDUCATION,
+      shouldSendContent: true,
+      contentToSend: 'compliance_risk_video',
+      handoffRequired: false,
+      leadUpdates: { conversationState: CONVERSATION_STATES.RISK_EDUCATION }
+    };
+  }
+
+  // ROI/cost discussions
+  if (sentiment.objections?.includes('price') || aiMessage.includes('ahorro') || aiMessage.includes('ROI')) {
+    return {
+      nextStep: CONVERSATION_STATES.ROI_CALCULATION,
+      shouldSendContent: true,
+      contentToSend: 'roi_calculator',
+      handoffRequired: false,
+      leadUpdates: { conversationState: CONVERSATION_STATES.ROI_CALCULATION }
+    };
+  }
+
+  // Demo request detected
+  if (sentiment.buying_intent === 'high' || aiMessage.includes('demo') || aiMessage.includes('ver')) {
+    return {
+      nextStep: CONVERSATION_STATES.DEMO_INTEREST,
+      shouldSendContent: false,
+      contentToSend: null,
+      handoffRequired: score >= 70,
+      leadUpdates: { conversationState: CONVERSATION_STATES.DEMO_INTEREST }
+    };
+  }
+
+  // Still qualifying
+  if (score < 40 && !leadContext.specialty) {
+    return {
+      nextStep: CONVERSATION_STATES.QUALIFICATION_BASIC,
+      shouldSendContent: false,
+      contentToSend: null,
+      handoffRequired: false,
+      leadUpdates: { conversationState: CONVERSATION_STATES.QUALIFICATION_BASIC }
+    };
+  }
+
+  // Default progression
+  return {
+    nextStep: getNextLogicalStep(currentStep, score),
+    shouldSendContent: false,
+    contentToSend: null,
+    handoffRequired: false,
+    leadUpdates: {}
+  };
+}
+
+/**
+ * Update lead score based on conversation analysis
+ */
+async function updateLeadScore(lead, messageText, intent, sentiment) {
+  let newScore = lead.qualificationScore || 0;
+  const text = messageText.toLowerCase();
+
+  // Engagement bonuses
+  if (sentiment.engagement === 'high') newScore += 5;
+  if (sentiment.buying_intent === 'high') newScore += 10;
+  if (sentiment.sentiment === 'positive') newScore += 3;
+
+  // Content analysis bonuses
+  if (text.includes('interesa') || text.includes('quiero')) newScore += 8;
+  if (text.includes('demo') || text.includes('ver')) newScore += 10;
+  if (text.includes('urgente') || text.includes('pronto')) newScore += 5;
+
+  // Professional indicators
+  if (text.includes('doctor') || text.includes('dr.') || text.includes('clínica')) newScore += 5;
+  if (text.includes('pacientes') && text.match(/\d+/)) {
+    const patientCount = parseInt(text.match(/\d+/)[0]);
+    if (patientCount >= 200) newScore += 15;
+    else if (patientCount >= 100) newScore += 10;
+    else if (patientCount >= 50) newScore += 5;
+  }
+
+  // Specialty bonuses
+  const premiumSpecialties = ['dermatología', 'cirugía estética', 'ortopedia', 'cardiología'];
+  if (premiumSpecialties.some(s => text.includes(s))) newScore += 10;
+
+  // Risk awareness (WhatsApp personal usage)
+  if (text.includes('whatsapp personal') || text.includes('celular personal')) newScore += 8;
+
+  return Math.min(newScore, 100); // Cap at 100
+}
+
+/**
+ * Get next logical step in conversation flow
+ */
+function getNextLogicalStep(currentStep, score) {
+  const flowMap = {
+    [CONVERSATION_STATES.GREETING_CLINIC]: CONVERSATION_STATES.QUALIFICATION_BASIC,
+    [CONVERSATION_STATES.QUALIFICATION_BASIC]: score >= 40 ? CONVERSATION_STATES.RISK_EDUCATION : CONVERSATION_STATES.QUALIFICATION_BASIC,
+    [CONVERSATION_STATES.RISK_EDUCATION]: CONVERSATION_STATES.ROI_CALCULATION,
+    [CONVERSATION_STATES.ROI_CALCULATION]: CONVERSATION_STATES.CASE_STUDIES,
+    [CONVERSATION_STATES.CASE_STUDIES]: CONVERSATION_STATES.DEMO_INTEREST,
+    [CONVERSATION_STATES.DEMO_INTEREST]: CONVERSATION_STATES.SCHEDULING_DEMO,
+    [CONVERSATION_STATES.SCHEDULING_DEMO]: CONVERSATION_STATES.HANDOFF_SALES
+  };
+
+  return flowMap[currentStep] || CONVERSATION_STATES.QUALIFICATION_BASIC;
+}
+
+/**
+ * Fallback response when AI fails
+ */
+async function handleFallbackResponse(messageText, intent, lead, currentStep) {
+  console.log('🔄 Using fallback response logic');
+  
+  // Use the old logic as fallback
+  if (currentStep === CONVERSATION_STATES.GREETING_CLINIC) {
+    return await handleGreetingClinic(messageText, intent, lead);
+  } else if (currentStep === CONVERSATION_STATES.QUALIFICATION_BASIC) {
+    return await handleQualificationBasic(messageText, intent, lead);
+  }
+  
+  // Generic fallback
+  return {
+    message: "Disculpa la demora. Soy Sofia de SafeNotify, especialista en comunicación médica. ¿En qué te puedo ayudar específicamente?",
+    nextStep: CONVERSATION_STATES.QUALIFICATION_BASIC,
+    leadScore: lead.qualificationScore || 0,
+    leadUpdates: {},
+    shouldSendContent: false,
+    fallback: true
+  };
 }
 
 /**
