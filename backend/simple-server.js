@@ -1474,17 +1474,28 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       removeOnFail: 20     // Keep last 20 failed jobs
     };
 
-    const job = await addCampaignJob({
-      campaignId: campaign.id,
-      csvBuffer: csvBuffer,
-      template: template,
-      userId: req.user.id,
-      userName: currentUser.name || 'Usuario',
-      variableMappings: variableMappings ? JSON.parse(variableMappings) : {},
-      defaultValues: defaultValues ? JSON.parse(defaultValues) : {}
-    }, jobOptions);
-
-    console.log(`⏳ Campaign job queued: ${job.id} with priority ${jobOptions.priority}`);
+    // Try to use queue system, fallback to immediate processing if queue is unavailable
+    let useQueue = true;
+    let job = null;
+    
+    try {
+      console.log('🔄 Attempting to add job to Bull Queue...');
+      job = await addCampaignJob({
+        campaignId: campaign.id,
+        csvBuffer: csvBuffer,
+        template: template,
+        userId: req.user.id,
+        userName: currentUser.name || 'Usuario',
+        variableMappings: variableMappings ? JSON.parse(variableMappings) : {},
+        defaultValues: defaultValues ? JSON.parse(defaultValues) : {}
+      }, jobOptions);
+      
+      console.log(`⏳ Campaign job queued: ${job.id} with priority ${jobOptions.priority}`);
+      
+    } catch (queueError) {
+      console.error('⚠️ Queue system unavailable, falling back to immediate processing:', queueError.message);
+      useQueue = false;
+    }
 
     // Clean up uploaded file immediately for security
     try {
@@ -1494,21 +1505,157 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       console.error('⚠️ Could not delete CSV file:', cleanupError.message);
     }
 
-    // Return immediate response - processing will happen in background
-    res.json({
-      success: true,
-      message: 'Campaña agregada a la cola de procesamiento. Comenzará el envío en unos segundos.',
-      campaign: {
-        id: campaign.id,
-        name: campaign.name,
-        status: 'queued',
-        totalContacts: totalContactsToSend,
-        template: template.name,
-        jobId: job.id,
-        estimatedStartTime: new Date(Date.now() + jobOptions.delay).toISOString(),
-        priority: jobOptions.priority
+    if (useQueue && job) {
+      // Return immediate response - processing will happen in background
+      res.json({
+        success: true,
+        message: 'Campaña agregada a la cola de procesamiento. Comenzará el envío en unos segundos.',
+        campaign: {
+          id: campaign.id,
+          name: campaign.name,
+          status: 'queued',
+          totalContacts: totalContactsToSend,
+          template: template.name,
+          jobId: job.id,
+          estimatedStartTime: new Date(Date.now() + jobOptions.delay).toISOString(),
+          priority: jobOptions.priority
+        }
+      });
+    } else {
+      // Fallback: Process immediately like the old system
+      console.log('🔄 Processing campaign immediately (queue unavailable)...');
+      
+      // Update campaign status to processing
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { status: 'processing' }
+      });
+      
+      // Process CSV and send messages immediately
+      let sentCount = 0;
+      let errorCount = 0;
+      
+      try {
+        const csvContent = csvBuffer.toString('utf8');
+        const csvLines = csvContent.split('\n').filter(line => line.trim());
+        const headers = csvLines[0].split(',').map(h => h.trim());
+        
+        console.log('📋 CSV Headers for immediate processing:', headers);
+        
+        // Process each contact
+        for (let i = 1; i < csvLines.length; i++) {
+          const values = csvLines[i].split(',').map(v => v.trim());
+          const contact = {};
+          headers.forEach((header, index) => {
+            contact[header] = values[index] || '';
+          });
+          
+          if (contact.telefono || contact.phone || contact.Phone || contact.celular) {
+            console.log(`📤 Processing contact ${i}: ${contact.nombre || 'Unknown'} - ${contact.telefono || contact.phone}`);
+            
+            try {
+              const phoneNumber = contact.telefono || contact.phone || contact.Phone || contact.celular;
+              const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+57${phoneNumber}`;
+              const whatsappNumber = `whatsapp:${formattedPhone}`;
+
+              // Build template variables (simplified version)
+              const templateVariables = {};
+              let defaultVals = {};
+              
+              try {
+                defaultVals = defaultValues ? JSON.parse(defaultValues) : {};
+              } catch (e) {
+                console.log('⚠️ Could not parse defaultValues:', defaultValues);
+              }
+              
+              if (template.variables && Array.isArray(template.variables)) {
+                template.variables.forEach((varName, index) => {
+                  const variableNumber = (index + 1).toString();
+                  
+                  switch(varName) {
+                    case 'nombre':
+                      templateVariables[variableNumber] = contact.nombre || contact.Nombre || contact.name || 'Cliente';
+                      break;
+                    case 'hora':
+                      templateVariables[variableNumber] = contact.hora || contact.Hora || contact.time || defaultVals[varName] || '';
+                      break;
+                    default:
+                      templateVariables[variableNumber] = contact[varName] || defaultVals[varName] || '';
+                  }
+                });
+              }
+              
+              console.log('📋 Variables for WhatsApp:', templateVariables);
+              
+              // Send message via Twilio
+              const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER.startsWith('whatsapp:') 
+                ? process.env.TWILIO_WHATSAPP_NUMBER 
+                : `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`;
+              
+              const message = await client.messages.create({
+                from: fromNumber,
+                to: whatsappNumber,
+                contentSid: template.twilioSid,
+                contentVariables: JSON.stringify(templateVariables)
+              });
+
+              console.log(`✅ Message sent: ${message.sid}`);
+              sentCount++;
+              
+              // Rate limiting - wait 1 second between messages
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
+            } catch (msgError) {
+              console.error(`❌ Error sending to ${contact.telefono || contact.phone}:`, msgError.message);
+              errorCount++;
+            }
+          }
+        }
+        
+      } catch (processingError) {
+        console.error('❌ Error processing CSV immediately:', processingError.message);
+        errorCount = totalContactsToSend;
       }
-    });
+      
+      // Update user message count
+      if (sentCount > 0) {
+        await prisma.user.update({
+          where: { id: req.user.id },
+          data: {
+            messagesUsed: {
+              increment: sentCount
+            }
+          }
+        });
+      }
+      
+      // Update campaign with final results
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          status: 'completed',
+          sentCount: sentCount,
+          errorCount: errorCount
+        }
+      });
+
+      console.log(`🎉 Campaign completed immediately: ${campaign.name} - ${sentCount}/${totalContactsToSend} sent`);
+
+      res.json({
+        success: true,
+        message: `Campaña procesada inmediatamente: ${sentCount} mensajes enviados exitosamente de ${totalContactsToSend} contactos.`,
+        campaign: {
+          id: campaign.id,
+          name: campaign.name,
+          status: 'completed',
+          totalContacts: totalContactsToSend,
+          sentCount: sentCount,
+          errorCount: errorCount,
+          template: template.name,
+          processedImmediately: true
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error creating campaign:', error);

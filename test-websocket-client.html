@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeNotify WebSocket Test Client</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            font-weight: bold; 
+        }
+        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .message { 
+            background: #e7f3ff; 
+            border: 1px solid #b3d7ff; 
+            color: #004085; 
+            padding: 10px; 
+            margin: 5px 0; 
+            border-radius: 5px; 
+            font-family: monospace; 
+        }
+        input, button { 
+            padding: 10px; 
+            margin: 5px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+        }
+        button { 
+            background: #007bff; 
+            color: white; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .progress { 
+            background: #f8f9fa; 
+            border: 2px solid #28a745; 
+            border-radius: 10px; 
+            padding: 15px; 
+            margin: 10px 0; 
+        }
+        .progress-bar { 
+            background: #28a745; 
+            height: 20px; 
+            border-radius: 10px; 
+            transition: width 0.3s ease; 
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 SafeNotify WebSocket Test Client</h1>
+        <p>Cliente de testing para probar conexiones WebSocket y progreso de campañas en tiempo real</p>
+        
+        <div id="status" class="status disconnected">❌ Desconectado</div>
+        
+        <div>
+            <h3>🔑 Configuración</h3>
+            <input type="text" id="token" placeholder="JWT Token aquí..." style="width: 400px;">
+            <input type="text" id="campaignId" placeholder="Campaign ID para tracking..." style="width: 300px;">
+            <br>
+            <button onclick="connect()">🔌 Conectar WebSocket</button>
+            <button onclick="disconnect()">❌ Desconectar</button>
+            <button onclick="joinCampaign()">📋 Unirse a Campaña</button>
+            <button onclick="clearMessages()">🧹 Limpiar</button>
+        </div>
+        
+        <div id="progress" class="progress" style="display: none;">
+            <h4>📊 Progreso de Campaña: <span id="campaignName">-</span></h4>
+            <div style="background: #e9ecef; border-radius: 10px; padding: 2px;">
+                <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
+            </div>
+            <p>
+                <strong>Enviados:</strong> <span id="sent">0</span> / <span id="total">0</span> 
+                (<span id="percentage">0</span>%) | 
+                <strong>Errores:</strong> <span id="errors">0</span> | 
+                <strong>Estado:</strong> <span id="campaignStatus">-</span>
+            </p>
+            <p><strong>Última actualización:</strong> <span id="timestamp">-</span></p>
+        </div>
+        
+        <div>
+            <h3>📱 Mensajes del WebSocket</h3>
+            <div id="messages" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        
+        function addMessage(message, type = 'info') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = '✅ Conectado al WebSocket';
+            } else {
+                statusDiv.className = 'status disconnected'; 
+                statusDiv.textContent = '❌ Desconectado del WebSocket';
+            }
+        }
+        
+        function connect() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('Por favor ingresa un JWT token válido');
+                return;
+            }
+            
+            addMessage('🔄 Intentando conectar al WebSocket...');
+            
+            socket = io('http://localhost:3001', {
+                auth: { token: token },
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', () => {
+                addMessage('✅ Conectado exitosamente al WebSocket!');
+                updateStatus(true);
+            });
+            
+            socket.on('disconnect', () => {
+                addMessage('❌ Desconectado del WebSocket');
+                updateStatus(false);
+            });
+            
+            socket.on('connect_error', (error) => {
+                addMessage(`❌ Error de conexión: ${error.message}`);
+                updateStatus(false);
+            });
+            
+            // Escuchar progreso de campaña
+            socket.on('campaign-progress', (data) => {
+                addMessage(`📊 Progreso recibido: ${JSON.stringify(data)}`);
+                updateProgress(data);
+            });
+            
+            // Escuchar estado de campaña
+            socket.on('campaign-status', (data) => {
+                addMessage(`📋 Estado de campaña: ${JSON.stringify(data)}`);
+                updateCampaignStatus(data);
+            });
+            
+            // Escuchar errores de campaña
+            socket.on('campaign-error', (data) => {
+                addMessage(`⚠️ Error de campaña: ${JSON.stringify(data)}`);
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                addMessage('🔌 Desconectado manualmente');
+                updateStatus(false);
+            }
+        }
+        
+        function joinCampaign() {
+            const campaignId = document.getElementById('campaignId').value;
+            if (!socket || !campaignId) {
+                alert('Conecta al WebSocket y proporciona un Campaign ID');
+                return;
+            }
+            
+            socket.emit('join-campaign', { campaignId });
+            addMessage(`📋 Solicitando unirse a la campaña: ${campaignId}`);
+            document.getElementById('progress').style.display = 'block';
+        }
+        
+        function updateProgress(data) {
+            document.getElementById('sent').textContent = data.sent || 0;
+            document.getElementById('total').textContent = data.total || 0;
+            document.getElementById('errors').textContent = data.errors || 0;
+            document.getElementById('percentage').textContent = data.progress || 0;
+            document.getElementById('timestamp').textContent = data.timestamp || '-';
+            
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${data.progress || 0}%`;
+        }
+        
+        function updateCampaignStatus(data) {
+            document.getElementById('campaignStatus').textContent = data.status || '-';
+            if (data.campaignName) {
+                document.getElementById('campaignName').textContent = data.campaignName;
+            }
+        }
+        
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+        
+        // Mensaje inicial
+        addMessage('🧪 Cliente de testing WebSocket iniciado. Ingresa tu token JWT y conecta.');
+        addMessage('💡 Tip: Obtén tu token haciendo login en /api/auth/login');
+        addMessage('💡 Tip: Crea una campaña primero para obtener un Campaign ID');
+    </script>
+</body>
+</html>
