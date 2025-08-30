@@ -81,17 +81,34 @@ export default function HistoryPage() {
       if (data.success && data.campaigns) {
         // Procesar las campañas reales del backend
         const processedCampaigns: Campaign[] = data.campaigns.map((campaign: any) => {
-          // Calcular estadísticas de mensajes si existen
-          const messageStats = campaign.messageStats || {}
-          const totalMessages = messageStats.total || 0
-          const deliveredMessages = messageStats.delivered || 0
-          const failedMessages = messageStats.failed || 0
-          const deliveryRate = totalMessages > 0 ? (deliveredMessages / totalMessages) * 100 : 0
+          // Usar datos directos de la campaña ya que no hay message logs
+          const totalMessages = campaign.sentCount || campaign.totalContacts || 0
+          const failedMessages = campaign.errorCount || 0
+          
+          // Calcular mensajes entregados (sent - failed) si no hay delivery tracking
+          const deliveredMessages = Math.max(0, totalMessages - failedMessages)
+          
+          // Calcular tasa de entrega más realista
+          let deliveryRate = 0
+          if (totalMessages > 0) {
+            if (campaign.status === 'completed' && failedMessages === 0) {
+              // Campaña exitosa sin errores = ~95% delivery rate estimado
+              deliveryRate = 95
+            } else if (campaign.status === 'completed' && failedMessages > 0) {
+              // Campaña con algunos errores
+              deliveryRate = ((totalMessages - failedMessages) / totalMessages) * 100
+            } else if (campaign.status === 'failed') {
+              deliveryRate = 0
+            } else {
+              // En progreso o sin completar
+              deliveryRate = 0
+            }
+          }
 
           return {
             id: campaign.id,
             name: campaign.name,
-            templateName: campaign.templateName || 'Plantilla personalizada',
+            templateName: campaign.templateName || campaign.template?.name || 'Plantilla personalizada',
             totalContacts: campaign.totalContacts || 0,
             messagesSent: totalMessages,
             messagesDelivered: deliveredMessages,
@@ -554,62 +571,191 @@ export default function HistoryPage() {
         {/* Modal de Detalles */}
         {showDetails && selectedCampaign && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Detalles de Campaña: {selectedCampaign.name}
+            <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  📊 Detalles de Campaña
                 </h3>
                 <button
                   onClick={() => setShowDetails(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
               
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Template</span>
-                  <p className="font-medium">{selectedCampaign.templateName}</p>
+              {/* Título de la campaña */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                  {selectedCampaign.name}
+                </h4>
+                <p className="text-sm text-gray-600">
+                  Template utilizado: <span className="font-medium">{selectedCampaign.templateName}</span>
+                </p>
+              </div>
+
+              {/* Información Básica */}
+              <div className="mb-6">
+                <h5 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
+                  <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                  Información Básica
+                </h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm text-gray-500 block">Estado</span>
+                    <p className={`font-semibold flex items-center mt-1 ${
+                      selectedCampaign.status === 'completed' ? 'text-green-600' :
+                      selectedCampaign.status === 'failed' ? 'text-red-600' :
+                      selectedCampaign.status === 'sending' ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      {selectedCampaign.status === 'completed' ? (
+                        <><CheckCircle className="w-4 h-4 mr-1" /> Completada</>
+                      ) : selectedCampaign.status === 'failed' ? (
+                        <><XCircle className="w-4 h-4 mr-1" /> Fallida</>
+                      ) : selectedCampaign.status === 'sending' ? (
+                        <><Send className="w-4 h-4 mr-1" /> Enviando</>
+                      ) : (
+                        <><Clock className="w-4 h-4 mr-1" /> Creada</>
+                      )}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm text-gray-500 block">Total Contactos</span>
+                    <p className="font-semibold text-gray-900 flex items-center mt-1">
+                      <Users className="w-4 h-4 mr-1 text-blue-500" />
+                      {selectedCampaign.totalContacts}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm text-gray-500 block">Fecha Creación</span>
+                    <p className="font-medium text-gray-900 text-sm mt-1">
+                      {formatDate(selectedCampaign.createdAt)}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm text-gray-500 block">Fecha Envío</span>
+                    <p className="font-medium text-gray-900 text-sm mt-1">
+                      {selectedCampaign.sentAt ? formatDate(selectedCampaign.sentAt) : 'No enviada'}
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Estado</span>
-                  <p className={`font-medium ${
-                    selectedCampaign.status === 'completed' ? 'text-green-600' :
-                    selectedCampaign.status === 'failed' ? 'text-red-600' :
-                    selectedCampaign.status === 'sending' ? 'text-blue-600' : 'text-gray-600'
-                  }`}>
-                    {selectedCampaign.status === 'completed' ? 'Completada' :
-                     selectedCampaign.status === 'failed' ? 'Fallida' :
-                     selectedCampaign.status === 'sending' ? 'Enviando' : 'Creada'}
-                  </p>
+              </div>
+
+              {/* Métricas de Envío */}
+              <div className="mb-6">
+                <h5 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
+                  <Send className="w-4 h-4 mr-2 text-green-500" />
+                  Métricas de Envío
+                </h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-blue-600 block font-medium">Mensajes Enviados</span>
+                        <p className="text-2xl font-bold text-blue-700 mt-1">{selectedCampaign.messagesSent}</p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          {selectedCampaign.totalContacts > 0 
+                            ? `${((selectedCampaign.messagesSent / selectedCampaign.totalContacts) * 100).toFixed(1)}% del total`
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <Send className="w-8 h-8 text-blue-500" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-green-600 block font-medium">Mensajes Entregados</span>
+                        <p className="text-2xl font-bold text-green-700 mt-1">{selectedCampaign.messagesDelivered}</p>
+                        <p className="text-xs text-green-600 mt-1">Estimado basado en estado</p>
+                      </div>
+                      <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-red-600 block font-medium">Mensajes Fallidos</span>
+                        <p className="text-2xl font-bold text-red-700 mt-1">{selectedCampaign.messagesFailed}</p>
+                        <p className="text-xs text-red-600 mt-1">Errores reportados</p>
+                      </div>
+                      <AlertCircle className="w-8 h-8 text-red-500" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-purple-600 block font-medium">Tasa de Entrega</span>
+                        <p className="text-2xl font-bold text-purple-700 mt-1">
+                          {selectedCampaign.deliveryRate.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-purple-600 mt-1">
+                          {selectedCampaign.deliveryRate >= 90 ? 'Excelente' :
+                           selectedCampaign.deliveryRate >= 70 ? 'Buena' : 
+                           selectedCampaign.deliveryRate >= 50 ? 'Regular' : 'Baja'}
+                        </p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-purple-500" />
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Total Contactos</span>
-                  <p className="font-medium">{selectedCampaign.totalContacts}</p>
+              </div>
+
+              {/* Análisis de Performance */}
+              <div className="mb-6">
+                <h5 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
+                  <BarChart3 className="w-4 h-4 mr-2 text-orange-500" />
+                  Análisis de Performance
+                </h5>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h6 className="font-medium text-gray-800 mb-2">Resumen de Resultados:</h6>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• {selectedCampaign.totalContacts} contactos cargados inicialmente</li>
+                        <li>• {selectedCampaign.messagesSent} mensajes procesados para envío</li>
+                        <li>• {selectedCampaign.messagesDelivered} mensajes entregados exitosamente</li>
+                        <li>• {selectedCampaign.messagesFailed} mensajes fallaron en el envío</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h6 className="font-medium text-gray-800 mb-2">Interpretación:</h6>
+                      <div className="text-sm text-gray-600">
+                        {selectedCampaign.status === 'completed' && selectedCampaign.messagesFailed === 0 ? (
+                          <p className="text-green-700">
+                            ✅ Campaña completada exitosamente sin errores reportados.
+                          </p>
+                        ) : selectedCampaign.status === 'completed' && selectedCampaign.messagesFailed > 0 ? (
+                          <p className="text-yellow-700">
+                            ⚠️ Campaña completada con algunos errores en el proceso.
+                          </p>
+                        ) : selectedCampaign.status === 'failed' ? (
+                          <p className="text-red-700">
+                            ❌ La campaña falló durante el proceso de envío.
+                          </p>
+                        ) : (
+                          <p className="text-blue-700">
+                            🔄 Campaña en proceso o pendiente de ejecución.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Mensajes Enviados</span>
-                  <p className="font-medium">{selectedCampaign.messagesSent}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Mensajes Entregados</span>
-                  <p className="font-medium text-green-600">{selectedCampaign.messagesDelivered}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Mensajes Fallidos</span>
-                  <p className="font-medium text-red-600">{selectedCampaign.messagesFailed}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Tasa de Entrega</span>
-                  <p className="font-medium text-blue-600">{selectedCampaign.deliveryRate.toFixed(1)}%</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded">
-                  <span className="text-sm text-gray-500">Fecha</span>
-                  <p className="font-medium">
-                    {selectedCampaign.sentAt ? formatDate(selectedCampaign.sentAt) : formatDate(selectedCampaign.createdAt)}
-                  </p>
-                </div>
+              </div>
+
+              {/* Nota Técnica */}
+              <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>📋 Nota:</strong> Las métricas de entrega mostradas son estimaciones basadas en el estado de la campaña. 
+                  Para obtener datos de entrega precisos en tiempo real, es necesario configurar los webhooks de Twilio.
+                </p>
               </div>
               
               <div className="flex justify-end space-x-3">
@@ -618,6 +764,41 @@ export default function HistoryPage() {
                   onClick={() => setShowDetails(false)}
                 >
                   Cerrar
+                </Button>
+                <Button
+                  onClick={() => {
+                    const singleCampaignData = [selectedCampaign]
+                    const csvContent = [
+                      ['Campaña', 'Estado', 'Contactos', 'Enviados', 'Entregados', 'Fallidos', 'Tasa Entrega', 'Fecha'],
+                      ...singleCampaignData.map(campaign => [
+                        campaign.name,
+                        campaign.status === 'completed' ? 'Completada' : 
+                        campaign.status === 'failed' ? 'Fallida' : 
+                        campaign.status === 'sending' ? 'Enviando' : 'Creada',
+                        campaign.totalContacts,
+                        campaign.messagesSent,
+                        campaign.messagesDelivered,
+                        campaign.messagesFailed,
+                        `${campaign.deliveryRate.toFixed(1)}%`,
+                        campaign.sentAt ? formatDate(campaign.sentAt) : formatDate(campaign.createdAt)
+                      ])
+                    ].map(row => row.join(',')).join('\n')
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                    const link = document.createElement('a')
+                    const url = URL.createObjectURL(blob)
+                    link.setAttribute('href', url)
+                    link.setAttribute('download', `detalle-campaña-${selectedCampaign.name.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`)
+                    link.style.visibility = 'hidden'
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                    URL.revokeObjectURL(url)
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar Esta Campaña
                 </Button>
               </div>
             </div>
