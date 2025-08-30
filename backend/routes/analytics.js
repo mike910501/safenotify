@@ -172,24 +172,24 @@ router.get('/dashboard', verifyToken, async (req, res) => {
 
     const formattedTemplateUsage = templateUsage.map((item, index) => ({
       name: item.name,
-      usage: parseFloat(item.usage_percentage) || 0,
+      usage: Number(item.usage_percentage) || 0,
       color: chartColors[index % chartColors.length]
     }));
 
     // Formatear datos diarios para el gráfico
     const formattedDailyMessages = dailyMessages.reverse().map(day => ({
       date: new Date(day.date).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' }),
-      sent: parseInt(day.sent),
-      delivered: parseInt(day.delivered),
-      failed: parseInt(day.failed)
+      sent: Number(day.sent),
+      delivered: Number(day.delivered),
+      failed: Number(day.failed)
     }));
 
     // Formatear performance de campañas
     const formattedCampaignPerformance = campaignPerformance.map(camp => ({
       name: camp.name.substring(0, 20) + (camp.name.length > 20 ? '...' : ''),
-      sent: parseInt(camp.sent),
-      delivered: parseInt(camp.delivered),
-      deliveryRate: parseFloat(camp.delivery_rate) || 0
+      sent: Number(camp.sent),
+      delivered: Number(camp.delivered),
+      deliveryRate: Number(camp.delivery_rate) || 0
     }));
 
     res.json({

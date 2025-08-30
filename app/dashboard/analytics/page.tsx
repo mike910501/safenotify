@@ -93,11 +93,12 @@ export default function AnalyticsPage() {
       const result = await response.json()
       
       if (result.success && result.data) {
+        console.log('✅ Real analytics data received:', result.data)
         setData(result.data)
         setLastUpdate(new Date())
       } else {
         // Fallback a datos simulados si no hay datos reales
-        console.warn('No real data available, using mock data')
+        console.warn('⚠️ No real data available, using mock data. Error:', result.error || 'Unknown error')
         const mockData: AnalyticsData = {
           dailyMessages: generateDailyData(),
           campaignPerformance: [
@@ -125,16 +126,23 @@ export default function AnalyticsPage() {
       }
       
     } catch (error) {
-      console.error('Error fetching analytics:', error)
+      console.error('❌ Error fetching analytics:', error)
+      
+      // Show error message to user and fallback to mock data
+      if (error.message.includes('401')) {
+        console.error('🔒 Authentication error - user needs to re-login')
+      } else if (error.message.includes('500')) {
+        console.error('🔧 Server error - backend may be down')
+      }
       
       // Fallback a datos simulados en caso de error
       const mockData: AnalyticsData = {
         dailyMessages: generateDailyData(),
         campaignPerformance: [
-          { name: 'Sin datos disponibles', sent: 0, delivered: 0, deliveryRate: 0 }
+          { name: 'Error: Sin conexión', sent: 0, delivered: 0, deliveryRate: 0 }
         ],
         templateUsage: [
-          { name: 'Sin datos', usage: 100, color: CHART_COLORS[0] }
+          { name: 'Error de conexión', usage: 100, color: CHART_COLORS[0] }
         ],
         deliveryStats: {
           total: user?.messagesUsed || 0,

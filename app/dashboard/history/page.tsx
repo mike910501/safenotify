@@ -48,6 +48,8 @@ export default function HistoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'date' | 'deliveryRate' | 'messages'>('date')
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
     fetchCampaignHistory()
@@ -145,6 +147,44 @@ export default function HistoryPage() {
     }
   }
 
+  const handleViewDetails = async (campaign: Campaign) => {
+    try {
+      setSelectedCampaign(campaign)
+      setShowDetails(true)
+    } catch (error) {
+      console.error('Error viewing campaign details:', error)
+    }
+  }
+
+  const exportToCsv = () => {
+    const csvContent = [
+      ['Campaña', 'Estado', 'Contactos', 'Enviados', 'Entregados', 'Fallidos', 'Tasa Entrega', 'Fecha'],
+      ...filteredCampaigns.map(campaign => [
+        campaign.name,
+        campaign.status === 'completed' ? 'Completada' : 
+        campaign.status === 'failed' ? 'Fallida' : 
+        campaign.status === 'sending' ? 'Enviando' : 'Creada',
+        campaign.totalContacts,
+        campaign.messagesSent,
+        campaign.messagesDelivered,
+        campaign.messagesFailed,
+        `${campaign.deliveryRate.toFixed(1)}%`,
+        campaign.sentAt ? formatDate(campaign.sentAt) : formatDate(campaign.createdAt)
+      ])
+    ].map(row => row.join(',')).join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `historial-campañas-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   const filteredCampaigns = campaigns
     .filter(campaign => {
       const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -233,6 +273,7 @@ export default function HistoryPage() {
             <Button
               variant="outline"
               className="hover:bg-primary-50 hover:border-primary-200"
+              onClick={exportToCsv}
             >
               <Download className="w-4 h-4 mr-2" />
               Exportar
@@ -483,6 +524,7 @@ export default function HistoryPage() {
                           variant="ghost"
                           size="sm"
                           className="text-primary-600 hover:text-primary-700 hover:bg-primary-50"
+                          onClick={() => handleViewDetails(campaign)}
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           Ver Detalles
@@ -508,6 +550,79 @@ export default function HistoryPage() {
             </div>
           )}
         </Card>
+
+        {/* Modal de Detalles */}
+        {showDetails && selectedCampaign && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Detalles de Campaña: {selectedCampaign.name}
+                </h3>
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Template</span>
+                  <p className="font-medium">{selectedCampaign.templateName}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Estado</span>
+                  <p className={`font-medium ${
+                    selectedCampaign.status === 'completed' ? 'text-green-600' :
+                    selectedCampaign.status === 'failed' ? 'text-red-600' :
+                    selectedCampaign.status === 'sending' ? 'text-blue-600' : 'text-gray-600'
+                  }`}>
+                    {selectedCampaign.status === 'completed' ? 'Completada' :
+                     selectedCampaign.status === 'failed' ? 'Fallida' :
+                     selectedCampaign.status === 'sending' ? 'Enviando' : 'Creada'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Total Contactos</span>
+                  <p className="font-medium">{selectedCampaign.totalContacts}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Mensajes Enviados</span>
+                  <p className="font-medium">{selectedCampaign.messagesSent}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Mensajes Entregados</span>
+                  <p className="font-medium text-green-600">{selectedCampaign.messagesDelivered}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Mensajes Fallidos</span>
+                  <p className="font-medium text-red-600">{selectedCampaign.messagesFailed}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Tasa de Entrega</span>
+                  <p className="font-medium text-blue-600">{selectedCampaign.deliveryRate.toFixed(1)}%</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <span className="text-sm text-gray-500">Fecha</span>
+                  <p className="font-medium">
+                    {selectedCampaign.sentAt ? formatDate(selectedCampaign.sentAt) : formatDate(selectedCampaign.createdAt)}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDetails(false)}
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
