@@ -3,6 +3,7 @@ const db = require('../config/database');
 const twilioService = require('../config/twilio');
 const campaignService = require('./campaignService');
 const logger = require('../config/logger');
+const prisma = require('../db');
 
 class MessageService {
   async sendCampaignMessages(campaignId) {
@@ -98,118 +99,152 @@ class MessageService {
   }
 
   prepareMessages(campaign) {
-    const messages = [];
-    const metadata = campaign.metadata || {};
-    const variableMappings = metadata.variableMappings || {};
-    const defaultValues = metadata.defaultValues || {};
+    if (!campaign || !campaign.csvData || !Array.isArray(campaign.csvData)) {
+      return [];
+    }
 
-    campaign.csvData.forEach((contact, index) => {
+    return campaign.csvData.map((contact, index) => {
+      const messageId = uuidv4();
+      
       try {
-        // Build template variables
-        const templateVariables = {};
-        
-        // Map CSV columns to template variables
-        Object.entries(variableMappings).forEach(([templateVar, csvColumn]) => {
-          if (contact[csvColumn]) {
-            templateVariables[templateVar] = contact[csvColumn];
-          }
-        });
-
-        // Add default values for missing variables
-        Object.entries(defaultValues).forEach(([templateVar, defaultValue]) => {
-          if (!templateVariables[templateVar] && defaultValue) {
-            templateVariables[templateVar] = defaultValue;
-          }
-        });
-
         // Validate phone number
-        if (!contact.telefono) {
-          throw new Error('Missing phone number');
+        const phone = contact.telefono || contact.phone || contact.numero;
+        if (!phone) {
+          return {
+            id: messageId,
+            valid: false,
+            error: 'No phone number provided',
+            contact: contact
+          };
         }
 
-        messages.push({
-          to: contact.telefono,
-          contentSid: campaign.template_sid,
-          contentVariables: templateVariables,
-          contactData: {
-            ...contact,
-            originalRow: index + 1
-          },
-          valid: true
-        });
+        // Format phone number (assuming Colombian format)
+        const formattedPhone = this.formatPhoneNumber(phone);
+        if (!formattedPhone) {
+          return {
+            id: messageId,
+            valid: false,
+            error: 'Invalid phone number format',
+            contact: contact
+          };
+        }
+
+        // Build message data
+        const messageData = {
+          id: messageId,
+          to: formattedPhone,
+          from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+          templateSid: campaign.template_sid,
+          contentSid: campaign.content_sid || null,
+          variables: this.buildTemplateVariables(campaign.template, contact),
+          valid: true,
+          contact: contact,
+          campaignId: campaign.id
+        };
+
+        return messageData;
 
       } catch (error) {
-        logger.warn('Invalid contact data', {
-          campaignId: campaign.id,
-          contactIndex: index,
+        logger.warn('Error preparing message', {
+          index,
           error: error.message,
-          contact: { ...contact, telefono: '[REDACTED]' }
+          contact: contact
         });
 
-        messages.push({
-          to: contact.telefono || 'unknown',
-          contentSid: campaign.template_sid,
-          contentVariables: {},
-          contactData: {
-            ...contact,
-            originalRow: index + 1
-          },
+        return {
+          id: messageId,
           valid: false,
-          error: error.message
-        });
+          error: error.message,
+          contact: contact
+        };
       }
     });
+  }
 
-    return messages;
+  formatPhoneNumber(phone) {
+    // Remove all non-numeric characters
+    const cleaned = phone.toString().replace(/\D/g, '');
+    
+    // Colombian phone number validation and formatting
+    if (cleaned.length === 10 && cleaned.startsWith('3')) {
+      // Mobile number: 3XXXXXXXXX -> +573XXXXXXXXX
+      return `+57${cleaned}`;
+    } else if (cleaned.length === 12 && cleaned.startsWith('57')) {
+      // Already has country code: 573XXXXXXXXX -> +573XXXXXXXXX
+      return `+${cleaned}`;
+    } else if (cleaned.length === 13 && cleaned.startsWith('573')) {
+      // Already formatted: +573XXXXXXXXX
+      return `+${cleaned}`;
+    }
+    
+    return null; // Invalid format
+  }
+
+  buildTemplateVariables(template, contact) {
+    if (!template || !template.variables) {
+      return {};
+    }
+
+    const variables = {};
+    
+    template.variables.forEach((variable, index) => {
+      const variableKey = (index + 1).toString(); // Twilio uses 1-based indexing
+      
+      // Try to find the value in the contact data
+      let value = contact[variable.toLowerCase()] || 
+                  contact[variable] || 
+                  contact[variable.toUpperCase()] ||
+                  `[${variable}]`; // Fallback placeholder
+
+      variables[variableKey] = value.toString();
+    });
+
+    return variables;
   }
 
   async processMessageResults(campaignId, results) {
     const messageInserts = [];
 
     for (const result of results) {
-      const messageId = uuidv4();
-      
       try {
-        // Insert message log
-        await db.run(`
-          INSERT INTO message_logs (
-            id, campaign_id, phone_number, message_sid, template_variables,
-            status, sent_at, error_message, attempts
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          messageId,
+        const insertData = [
+          result.id,
           campaignId,
           result.to,
-          result.messageSid || null,
-          JSON.stringify(result.contentVariables || {}),
           result.success ? 'sent' : 'failed',
-          new Date().toISOString(),
+          result.messageSid || null,
           result.error || null,
-          1
-        ]);
+          new Date().toISOString(),
+          result.success ? null : new Date().toISOString(),
+          JSON.stringify({
+            variables: result.variables,
+            templateSid: result.templateSid,
+            contentSid: result.contentSid,
+            twilioResponse: result.twilioResponse
+          })
+        ];
 
-        if (result.success) {
-          logger.message(result.messageSid, 'sent', {
-            campaignId,
-            to: result.to,
-            contactRow: result.contactData?.originalRow
-          });
-        } else {
-          logger.message(messageId, 'failed', {
-            campaignId,
-            to: result.to,
-            error: result.error,
-            contactRow: result.contactData?.originalRow
-          });
-        }
+        messageInserts.push(insertData);
 
       } catch (error) {
-        logger.error('Failed to log message result', {
-          campaignId,
-          messageId,
+        logger.error('Error processing message result', {
+          result: result,
           error: error.message
         });
       }
+    }
+
+    // Batch insert message logs
+    if (messageInserts.length > 0) {
+      const placeholders = messageInserts.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+      const flatData = messageInserts.flat();
+
+      await db.run(`
+        INSERT INTO message_logs (
+          id, campaign_id, phone, status, message_sid, 
+          error_message, sent_at, delivered_at, metadata
+        ) VALUES ${placeholders}
+      `, flatData);
     }
 
     return messageInserts.length;
@@ -221,212 +256,227 @@ class MessageService {
       const errorCode = webhookData.ErrorCode;
       const errorMessage = webhookData.ErrorMessage;
 
-      // Update message log
-      const updateResult = await db.run(`
-        UPDATE message_logs 
-        SET status = ?, delivered_at = ?, error_message = ?, webhook_data = ?
-        WHERE message_sid = ?
-      `, [
-        status,
-        status === 'delivered' ? new Date().toISOString() : null,
-        errorMessage || null,
-        JSON.stringify(webhookData),
-        messageSid
-      ]);
+      // Set delivery timestamp for delivered status
+      const deliveredAt = status === 'delivered' ? new Date() : null;
 
-      if (updateResult.changes > 0) {
+      // Update message log using Prisma for better consistency
+      const updatedMessage = await prisma.messageLog.updateMany({
+        where: {
+          messageSid: messageSid
+        },
+        data: {
+          status: status,
+          deliveredAt: deliveredAt,
+          error: errorMessage || null
+        }
+      });
+
+      if (updatedMessage.count > 0) {
         logger.message(messageSid, 'status_updated', {
           newStatus: status,
-          errorCode,
-          errorMessage
+          deliveredAt: deliveredAt,
+          errorCode: errorCode
         });
-
-        // Log to audit table for important status changes
-        if (['delivered', 'failed', 'undelivered'].includes(status)) {
-          await db.run(`
-            INSERT INTO audit_logs (action, resource_type, resource_id, details)
-            VALUES (?, ?, ?, ?)
-          `, [
-            'message_status_updated',
-            'message',
-            messageSid,
-            JSON.stringify({
-              status,
-              errorCode,
-              errorMessage,
-              timestamp: new Date().toISOString()
-            })
-          ]);
-        }
 
         return true;
       } else {
-        logger.warn('Message SID not found for status update', {
-          messageSid,
-          status,
-          errorCode
+        logger.warn('Message not found for status update', {
+          messageSid: messageSid,
+          status: status
         });
+        
         return false;
       }
 
     } catch (error) {
       logger.error('Failed to update message status', {
-        messageSid,
+        messageSid: messageSid,
         error: error.message,
-        webhookData
+        webhookData: webhookData
       });
+
       throw error;
     }
   }
 
-  async getMessageStatus(messageSid) {
+  // New methods for enhanced webhook tracking
+  async updateDeliveryTime(messageSid, deliveryTime) {
     try {
-      const message = await db.get(
-        'SELECT * FROM message_logs WHERE message_sid = ?',
-        [messageSid]
-      );
-
-      if (!message) {
-        throw new Error('Message not found');
-      }
-
-      // Get additional status from Twilio if needed
-      const twilioStatus = await twilioService.getMessageStatus(messageSid);
-
-      return {
-        id: message.id,
-        campaignId: message.campaign_id,
-        phoneNumber: message.phone_number,
-        messageSid: message.message_sid,
-        status: message.status,
-        sentAt: message.sent_at,
-        deliveredAt: message.delivered_at,
-        errorMessage: message.error_message,
-        attempts: message.attempts,
-        twilioStatus,
-        webhookData: message.webhook_data ? JSON.parse(message.webhook_data) : null
-      };
-
-    } catch (error) {
-      logger.error('Failed to get message status', {
-        messageSid,
-        error: error.message
-      });
-      throw error;
-    }
-  }
-
-  async getCampaignMessages(campaignId, options = {}) {
-    const { status, limit = 100, offset = 0 } = options;
-
-    let query = `
-      SELECT id, phone_number, message_sid, status, sent_at, delivered_at, 
-             error_message, attempts, template_variables
-      FROM message_logs 
-      WHERE campaign_id = ?
-    `;
-    
-    const params = [campaignId];
-
-    if (status) {
-      query += ' AND status = ?';
-      params.push(status);
-    }
-
-    query += ' ORDER BY sent_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-
-    const messages = await db.all(query, params);
-
-    return messages.map(message => ({
-      ...message,
-      templateVariables: JSON.parse(message.template_variables || '{}'),
-      phoneNumber: '[REDACTED]' // Don't expose full phone numbers in API
-    }));
-  }
-
-  async retryFailedMessages(campaignId, maxRetries = 3) {
-    try {
-      // Get failed messages that haven't exceeded retry limit
-      const failedMessages = await db.all(`
-        SELECT * FROM message_logs 
-        WHERE campaign_id = ? AND status = 'failed' AND attempts < ?
-      `, [campaignId, maxRetries]);
-
-      if (failedMessages.length === 0) {
-        return {
-          success: true,
-          message: 'No messages to retry',
-          retriedCount: 0
-        };
-      }
-
-      logger.campaign(campaignId, 'retrying_failed_messages', {
-        messageCount: failedMessages.length
-      });
-
-      let successCount = 0;
-      let stillFailedCount = 0;
-
-      for (const message of failedMessages) {
-        try {
-          const templateVariables = JSON.parse(message.template_variables || '{}');
-          const result = await twilioService.sendTemplateMessage(
-            message.phone_number,
-            (await campaignService.getCampaignMetadata(campaignId)).template_sid,
-            templateVariables
-          );
-
-          // Update message log
-          if (result.success) {
-            await db.run(`
-              UPDATE message_logs 
-              SET status = 'sent', message_sid = ?, attempts = attempts + 1,
-                  sent_at = ?, error_message = NULL
-              WHERE id = ?
-            `, [result.messageSid, new Date().toISOString(), message.id]);
-            successCount++;
-          } else {
-            await db.run(`
-              UPDATE message_logs 
-              SET attempts = attempts + 1, error_message = ?
-              WHERE id = ?
-            `, [result.error, message.id]);
-            stillFailedCount++;
-          }
-
-        } catch (error) {
-          logger.error('Failed to retry message', {
-            campaignId,
-            messageId: message.id,
-            error: error.message
-          });
-          stillFailedCount++;
+      const updated = await prisma.messageLog.updateMany({
+        where: {
+          messageSid: messageSid,
+          status: 'delivered'
+        },
+        data: {
+          deliveredAt: deliveryTime
         }
-
-        // Rate limiting between retries
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      logger.campaign(campaignId, 'retry_completed', {
-        totalRetried: failedMessages.length,
-        successful: successCount,
-        stillFailed: stillFailedCount
       });
 
-      return {
-        success: true,
-        retriedCount: failedMessages.length,
-        successful: successCount,
-        stillFailed: stillFailedCount
-      };
-
+      return updated.count > 0;
     } catch (error) {
-      logger.error('Failed to retry failed messages', {
-        campaignId,
+      logger.error('Failed to update delivery time', {
+        messageSid: messageSid,
         error: error.message
       });
+      
+      return false;
+    }
+  }
+
+  async updateReadTime(messageSid, readTime) {
+    try {
+      const updated = await prisma.messageLog.updateMany({
+        where: {
+          messageSid: messageSid
+        },
+        data: {
+          readAt: readTime
+        }
+      });
+
+      return updated.count > 0;
+    } catch (error) {
+      logger.error('Failed to update read time', {
+        messageSid: messageSid,
+        error: error.message
+      });
+      
+      return false;
+    }
+  }
+
+  // Analytics helper methods
+  async getMessageStats(userId, startDate, endDate) {
+    try {
+      const stats = await prisma.messageLog.groupBy({
+        by: ['status'],
+        where: {
+          campaign: {
+            userId: userId
+          },
+          sentAt: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        _count: {
+          status: true
+        }
+      });
+
+      const result = {
+        total: 0,
+        sent: 0,
+        delivered: 0,
+        failed: 0,
+        read: 0
+      };
+
+      stats.forEach(stat => {
+        result[stat.status] = stat._count.status;
+        result.total += stat._count.status;
+      });
+
+      return result;
+    } catch (error) {
+      logger.error('Failed to get message stats', {
+        userId: userId,
+        error: error.message
+      });
+      
       throw error;
+    }
+  }
+
+  async getDailyMessageCounts(userId, days = 30) {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const dailyStats = await prisma.$queryRaw`
+        SELECT 
+          DATE(sent_at) as date,
+          COUNT(*) as total,
+          COUNT(CASE WHEN status = 'sent' THEN 1 END) as sent,
+          COUNT(CASE WHEN status = 'delivered' THEN 1 END) as delivered,
+          COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed
+        FROM message_logs ml
+        JOIN campaigns c ON ml.campaign_id = c.id
+        WHERE c.user_id = ${userId}
+          AND ml.sent_at >= ${startDate}
+        GROUP BY DATE(sent_at)
+        ORDER BY DATE(sent_at) DESC
+      `;
+
+      return dailyStats;
+    } catch (error) {
+      logger.error('Failed to get daily message counts', {
+        userId: userId,
+        error: error.message
+      });
+      
+      throw error;
+    }
+  }
+
+  async validateMessage(messageData) {
+    // Phone number validation
+    if (!messageData.to || !this.isValidPhoneNumber(messageData.to)) {
+      return {
+        valid: false,
+        error: 'Invalid phone number'
+      };
+    }
+
+    // Template validation
+    if (!messageData.templateSid && !messageData.contentSid) {
+      return {
+        valid: false,
+        error: 'Template or content SID required'
+      };
+    }
+
+    return {
+      valid: true
+    };
+  }
+
+  isValidPhoneNumber(phone) {
+    // Basic WhatsApp phone number validation
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    return phoneRegex.test(phone);
+  }
+
+  async getMessageDeliveryRate(campaignId) {
+    try {
+      const stats = await prisma.messageLog.groupBy({
+        by: ['status'],
+        where: {
+          campaignId: campaignId
+        },
+        _count: {
+          status: true
+        }
+      });
+
+      let total = 0;
+      let delivered = 0;
+
+      stats.forEach(stat => {
+        total += stat._count.status;
+        if (stat.status === 'delivered') {
+          delivered += stat._count.status;
+        }
+      });
+
+      return total > 0 ? (delivered / total) * 100 : 0;
+    } catch (error) {
+      logger.error('Failed to get delivery rate', {
+        campaignId: campaignId,
+        error: error.message
+      });
+      
+      return 0;
     }
   }
 }

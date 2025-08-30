@@ -14,7 +14,10 @@ const adminRoutes = require('./routes/admin');
 const templatesAIRoutes = require('./routes/templatesAI');
 const campaignProgressRoutes = require('./routes/campaignProgress');
 const scheduledCampaignsRoutes = require('./routes/scheduledCampaigns');
+const blacklistRoutes = require('./routes/blacklist');
+const analyticsRoutes = require('./routes/analytics');
 const schedulerService = require('./services/schedulerService');
+const blacklistService = require('./services/blacklistService');
 
 // Import WebSocket and Queue systems
 const CampaignProgressTracker = require('./websocket/campaignProgress');
@@ -1336,7 +1339,10 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
       
       const headers = csvLines[0].split(',').map(h => h.trim());
       
-      // Count valid contacts with enhanced validation
+      // Build contacts array and validate against blacklist
+      const contacts = [];
+      const phoneNumbers = [];
+      
       for (let i = 1; i < csvLines.length; i++) {
         const values = csvLines[i].split(',').map(v => v.trim());
         const contact = {};
@@ -1344,17 +1350,62 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
           contact[header] = values[index] || '';
         });
         
-        if (contact.telefono || contact.phone || contact.Phone || contact.celular) {
-          totalContactsToSend++;
+        const phoneNumber = contact.telefono || contact.phone || contact.Phone || contact.celular;
+        if (phoneNumber) {
+          contacts.push(contact);
+          phoneNumbers.push(phoneNumber);
         }
       }
       
-      console.log(`📊 Total contacts to send: ${totalContactsToSend}`);
+      console.log(`📊 Total contacts found: ${contacts.length}`);
+      
+      if (contacts.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No se encontraron contactos válidos en el archivo CSV'
+        });
+      }
+      
+      // Validate against blacklist
+      console.log('🛡️ Validating contacts against blacklist...');
+      const blacklistValidation = await blacklistService.validateNumbers(phoneNumbers);
+      
+      console.log(`🛡️ Blacklist validation results:`, {
+        total: blacklistValidation.total,
+        valid: blacklistValidation.valid,
+        blacklisted: blacklistValidation.blacklisted
+      });
+      
+      if (blacklistValidation.blacklisted > 0) {
+        console.log(`⚠️ Found ${blacklistValidation.blacklisted} blacklisted numbers`);
+        
+        // Log blacklisted numbers for admin review
+        blacklistValidation.blacklistedNumbers.forEach(blocked => {
+          console.log(`🚫 Blacklisted: ${blocked.phoneNumber} - Reason: ${blocked.reason}`);
+        });
+        
+        // Option 1: Block entire campaign if any blacklisted numbers found (strict)
+        // Uncomment this for strict mode:
+        /*
+        return res.status(400).json({
+          success: false,
+          error: `Se encontraron ${blacklistValidation.blacklisted} números en lista negra. Revisa y remueve estos números del archivo CSV.`,
+          blacklistedNumbers: blacklistValidation.blacklistedNumbers
+        });
+        */
+        
+        // Option 2: Continue with valid numbers only (permissive - current implementation)
+        totalContactsToSend = blacklistValidation.valid;
+        console.log(`✅ Continuing with ${totalContactsToSend} valid numbers, skipping ${blacklistValidation.blacklisted} blacklisted`);
+      } else {
+        totalContactsToSend = blacklistValidation.total;
+      }
       
       if (totalContactsToSend === 0) {
         return res.status(400).json({
           success: false,
-          error: 'No se encontraron contactos válidos en el archivo CSV'
+          error: 'Todos los números están en lista negra. No se puede proceder con el envío.',
+          blacklistedNumbers: blacklistValidation.blacklistedNumbers
         });
       }
       
@@ -2159,6 +2210,12 @@ app.use('/api/templates-ai', templatesAIRoutes);
 
 // Mount scheduled campaigns routes
 app.use('/api/scheduled-campaigns', scheduledCampaignsRoutes);
+
+// Mount blacklist routes
+app.use('/api/blacklist', blacklistRoutes);
+
+// Mount analytics routes
+app.use('/api/analytics', analyticsRoutes);
 
 // Export user data endpoint
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {

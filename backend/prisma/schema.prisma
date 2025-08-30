@@ -8,87 +8,77 @@ datasource db {
 }
 
 model User {
-  id            String     @id @default(cuid())
-  email         String     @unique
-  password      String
-  name          String?
-  role          String     @default("user")
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  planType      String     @default("free")
-  planExpiry    DateTime?
-  messagesUsed  Int        @default(0)
-  messagesLimit Int        @default(10)
-  apiKeys       ApiKey[]
-  campaigns           Campaign[]
-  payments            Payment[]
-  templates           Template[]
-  passwordResets      PasswordReset[]
-  scheduledCampaigns  ScheduledCampaign[]
+  id             String          @id @default(cuid())
+  email          String          @unique
+  password       String
+  name           String?
+  role           String          @default("user")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  planType       String          @default("free")
+  planExpiry     DateTime?
+  messagesUsed   Int             @default(0)
+  messagesLimit  Int             @default(10)
+  apiKeys        ApiKey[]
+  campaigns      Campaign[]
+  passwordResets PasswordReset[]
+  payments       Payment[]
+  templates      Template[]
 
   @@map("users")
 }
 
 model Campaign {
-  id                  String             @id @default(cuid())
-  name                String
-  templateId          String?
-  status              String             @default("draft") // draft, queued, processing, sending, completed, failed, cancelled
-  totalContacts       Int                @default(0)
-  sentCount           Int                @default(0)
-  errorCount          Int                @default(0)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  sentAt              DateTime?
-  userId              String
-  template            Template?          @relation(fields: [templateId], references: [id])
-  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages            MessageLog[]
-  isScheduled         Boolean            @default(false)
-  scheduledCampaignId String?
-  scheduledCampaign   ScheduledCampaign? @relation(fields: [scheduledCampaignId], references: [id])
+  id            String       @id @default(cuid())
+  name          String
+  templateId    String?
+  status        String       @default("draft")
+  totalContacts Int          @default(0)
+  sentCount     Int          @default(0)
+  errorCount    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  sentAt        DateTime?
+  userId        String
+  template      Template?    @relation(fields: [templateId], references: [id])
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      MessageLog[]
 
   @@map("campaigns")
 }
 
 model Template {
-  id               String     @id @default(cuid())
-  name             String
-  content          String
-  category         String     @default("general")
-  variables        String[]
-  status           String     @default("ai_pending")
-  isPublic         Boolean    @default(false)
-  aiApproved       Boolean    @default(false)
-  aiScore          Int?
-  aiReasons        String[]
-  aiSuggestions    String[]
-  twilioTemplateId String?
-  twilioSid        String?
-  adminReviewedBy  String?
-  adminReviewedAt  DateTime?
-  adminNotes       String?
-  usageCount       Int        @default(0)
-  
-  // WhatsApp Business Integration
-  headerText       String?
-  footerText       String?
-  language         String     @default("es")
-  variablesMapping Json?
-  twilioContentSid String?
-  businessCategory String     @default("UTILITY")
-  
-  // Interactive Templates (with buttons)
-  hasInteractiveButtons Boolean @default(false)
-  buttonsConfig        Json?    // Configuration for buttons like [{type: "QUICK_REPLY", text: "Confirmar"}, {type: "QUICK_REPLY", text: "Cancelar"}]
-  templateType         String   @default("TEXT") // TEXT, INTERACTIVE, MEDIA
-  
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  userId              String?
-  campaigns           Campaign[]
-  scheduledCampaigns  ScheduledCampaign[]
-  user                User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String     @id @default(cuid())
+  name                  String
+  content               String
+  category              String     @default("general")
+  variables             String[]
+  status                String     @default("ai_pending")
+  isPublic              Boolean    @default(false)
+  aiApproved            Boolean    @default(false)
+  aiScore               Int?
+  aiReasons             String[]
+  aiSuggestions         String[]
+  twilioTemplateId      String?
+  twilioSid             String?
+  adminReviewedBy       String?
+  adminReviewedAt       DateTime?
+  adminNotes            String?
+  usageCount            Int        @default(0)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  userId                String?
+  businessCategory      String     @default("UTILITY")
+  footerText            String?
+  headerText            String?
+  language              String     @default("es")
+  twilioContentSid      String?
+  variablesMapping      Json?
+  buttonsConfig         Json?
+  hasInteractiveButtons Boolean    @default(false)
+  templateType          String     @default("TEXT")
+  campaigns             Campaign[]
+  user                  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("templates")
 }
@@ -151,41 +141,16 @@ model PasswordReset {
   @@map("password_resets")
 }
 
-// Configuración global de WhatsApp
 model WhatsAppConfig {
-  id                    String   @id @default(cuid())
-  twilioAccountSid      String
-  twilioAuthToken       String   // Encriptado
-  whatsappNumber        String
-  businessAccountId     String?  // Meta Business Account ID
-  
-  // Configuración por defecto
-  rateLimitPerMinute    Int      @default(20)
-  isActive              Boolean  @default(true)
-  
-  // Metadata
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
+  id                 String   @id @default(cuid())
+  twilioAccountSid   String
+  twilioAuthToken    String
+  whatsappNumber     String
+  businessAccountId  String?
+  rateLimitPerMinute Int      @default(20)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
   @@map("whatsapp_config")
-}
-
-model ScheduledCampaign {
-  id           String     @id @default(cuid())
-  name         String
-  templateId   String
-  template     Template   @relation(fields: [templateId], references: [id])
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scheduledFor DateTime
-  status       String     @default("scheduled") // scheduled, executed, failed, cancelled, expired
-  campaignData String     @db.Text // JSON string con datos de la campaña
-  campaignId   String?
-  campaign     Campaign?
-  error        String?
-  createdAt    DateTime   @default(now())
-  executedAt   DateTime?
-  updatedAt    DateTime   @updatedAt
-
-  @@map("scheduled_campaigns")
 }

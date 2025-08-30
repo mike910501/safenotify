@@ -78,20 +78,63 @@ export default function AnalyticsPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      // Simular datos por ahora - en producción se conectaría con la API real
+      // Conectar con API real de analytics
+      const response = await fetch(`${API_URL}/api/analytics/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        setData(result.data)
+        setLastUpdate(new Date())
+      } else {
+        // Fallback a datos simulados si no hay datos reales
+        console.warn('No real data available, using mock data')
+        const mockData: AnalyticsData = {
+          dailyMessages: generateDailyData(),
+          campaignPerformance: [
+            { name: 'Recordatorio Citas', sent: 150, delivered: 142, deliveryRate: 94.7 },
+            { name: 'Confirmación Pago', sent: 89, delivered: 85, deliveryRate: 95.5 },
+            { name: 'Promoción Servicios', sent: 67, delivered: 61, deliveryRate: 91.0 },
+            { name: 'Encuesta Satisfacción', sent: 45, delivered: 43, deliveryRate: 95.6 }
+          ],
+          templateUsage: [
+            { name: 'Recordatorios', usage: 45, color: CHART_COLORS[0] },
+            { name: 'Confirmaciones', usage: 30, color: CHART_COLORS[1] },
+            { name: 'Promociones', usage: 15, color: CHART_COLORS[2] },
+            { name: 'Encuestas', usage: 10, color: CHART_COLORS[3] }
+          ],
+          deliveryStats: {
+            total: user?.messagesUsed || 0,
+            delivered: Math.floor((user?.messagesUsed || 0) * 0.94),
+            failed: Math.floor((user?.messagesUsed || 0) * 0.06),
+            pending: 0,
+            deliveryRate: 94.2
+          }
+        }
+        setData(mockData)
+        setLastUpdate(new Date())
+      }
+      
+    } catch (error) {
+      console.error('Error fetching analytics:', error)
+      
+      // Fallback a datos simulados en caso de error
       const mockData: AnalyticsData = {
         dailyMessages: generateDailyData(),
         campaignPerformance: [
-          { name: 'Recordatorio Citas', sent: 150, delivered: 142, deliveryRate: 94.7 },
-          { name: 'Confirmación Pago', sent: 89, delivered: 85, deliveryRate: 95.5 },
-          { name: 'Promoción Servicios', sent: 67, delivered: 61, deliveryRate: 91.0 },
-          { name: 'Encuesta Satisfacción', sent: 45, delivered: 43, deliveryRate: 95.6 }
+          { name: 'Sin datos disponibles', sent: 0, delivered: 0, deliveryRate: 0 }
         ],
         templateUsage: [
-          { name: 'Recordatorios', usage: 45, color: CHART_COLORS[0] },
-          { name: 'Confirmaciones', usage: 30, color: CHART_COLORS[1] },
-          { name: 'Promociones', usage: 15, color: CHART_COLORS[2] },
-          { name: 'Encuestas', usage: 10, color: CHART_COLORS[3] }
+          { name: 'Sin datos', usage: 100, color: CHART_COLORS[0] }
         ],
         deliveryStats: {
           total: user?.messagesUsed || 0,
@@ -101,12 +144,8 @@ export default function AnalyticsPage() {
           deliveryRate: 94.2
         }
       }
-
       setData(mockData)
       setLastUpdate(new Date())
-      
-    } catch (error) {
-      console.error('Error fetching analytics:', error)
     } finally {
       if (!silent) setLoading(false)
     }
@@ -138,24 +177,51 @@ export default function AnalyticsPage() {
     alert('Funcionalidad de exportación a PDF próximamente')
   }
 
-  const exportToCSV = () => {
-    if (!data) return
-    
-    // Convertir datos a CSV
-    const csvContent = [
-      ['Fecha', 'Enviados', 'Entregados', 'Fallidos'],
-      ...data.dailyMessages.map(d => [d.date, d.sent, d.delivered, d.failed])
-    ].map(row => row.join(',')).join('\n')
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `safenotify-analytics-${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const exportToCSV = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      // Descargar CSV directamente del backend
+      const response = await fetch(`${API_URL}/api/analytics/export?format=csv`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `safenotify-analytics-${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      } else {
+        // Fallback a exportación local si falla el backend
+        if (!data) return
+        
+        const csvContent = [
+          ['Fecha', 'Enviados', 'Entregados', 'Fallidos'],
+          ...data.dailyMessages.map(d => [d.date, d.sent, d.delivered, d.failed])
+        ].map(row => row.join(',')).join('\n')
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', `safenotify-analytics-${new Date().toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      alert('Error al exportar datos. Por favor intenta de nuevo.')
+    }
   }
 
   if (loading && !data) {
@@ -482,11 +548,23 @@ export default function AnalyticsPage() {
             </p>
           </div>
           <div className="bg-white p-4 rounded-lg border">
-            <h4 className="font-medium text-purple-700 mb-2">🎯 Oportunidad</h4>
-            <p className="text-sm text-gray-600">
-              Tienes {(user?.messagesLimit || 0) - (user?.messagesUsed || 0)} mensajes disponibles. 
-              ¡Aprovecha tu plan actual!
-            </p>
+            <h4 className="font-medium text-purple-700 mb-2">🎯 Progreso del Plan</h4>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                Plan {user?.planType || 'free'}: {user?.messagesUsed || 0} de {user?.messagesLimit || 10} mensajes
+              </p>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ 
+                    width: `${Math.min(((user?.messagesUsed || 0) / (user?.messagesLimit || 1)) * 100, 100)}%` 
+                  }}
+                ></div>
+              </div>
+              <p className="text-xs text-purple-600">
+                {((user?.messagesUsed || 0) / (user?.messagesLimit || 1) * 100).toFixed(1)}% utilizado
+              </p>
+            </div>
           </div>
         </div>
       </Card>

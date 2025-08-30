@@ -68,6 +68,13 @@ router.post('/twilio',
         timestamp: new Date().toISOString()
       });
 
+      // Update delivery timestamp based on status
+      if (MessageStatus === 'delivered') {
+        await messageService.updateDeliveryTime(MessageSid, new Date());
+      } else if (MessageStatus === 'read') {
+        await messageService.updateReadTime(MessageSid, new Date());
+      }
+
       if (!updated) {
         logger.warn('Webhook received for unknown message', {
           messageSid: MessageSid,
