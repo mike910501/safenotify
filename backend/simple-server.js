@@ -1495,7 +1495,7 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                         break;
                       case 'hora':
                         // From CSV if available, otherwise from defaults
-                        templateVariables[varName] = contact.Hora || contact.hora || contact.time || frontendDefaults[varName] || 'Por confirmar';
+                        templateVariables[varName] = contact.Hora || contact.hora || contact.time || frontendDefaults[varName] || '';
                         break;
                       case 'empresa':
                         // From frontend defaults (was variable 2)
@@ -1507,7 +1507,7 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                         break;
                       case 'fecha':
                         // From frontend defaults (was variable 4)
-                        templateVariables[varName] = frontendDefaults['4'] || frontendDefaults[varName] || 'Por confirmar';
+                        templateVariables[varName] = frontendDefaults['4'] || frontendDefaults[varName] || '';
                         break;
                       case 'lugar':
                         // From frontend defaults (was variable 5)
@@ -1520,7 +1520,7 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                         } else if (frontendDefaults[varName]) {
                           templateVariables[varName] = frontendDefaults[varName];
                         } else {
-                          templateVariables[varName] = 'N/A';
+                          templateVariables[varName] = ''; // Use empty string instead of 'N/A'
                         }
                     }
                   });
@@ -1585,6 +1585,14 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
               
               console.log('📋 Numbered variables for WhatsApp:', numberedVariables);
               console.log(`🔢 Template expects ${actualParameterCount} parameters, sending ${Object.keys(numberedVariables).length} variables`);
+              
+              // Additional validation: ensure no parameters are undefined or null
+              Object.keys(numberedVariables).forEach(key => {
+                if (numberedVariables[key] === undefined || numberedVariables[key] === null) {
+                  numberedVariables[key] = '';
+                  console.log(`⚠️ Fixed undefined parameter ${key}, set to empty string`);
+                }
+              });
 
               console.log(`📱 Sending to ${formattedPhone} with template ${template.twilioSid}`);
               
