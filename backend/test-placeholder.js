@@ -1,0 +1,1 @@
+console.log('Testing placeholder detection...'); const content = 'Hola {{1}}, tu cita {{2}} a las {{3}}'; const matches = content.match(/\{\{(\d+)\}\}/g) || []; console.log('Matches found:', matches); const maxNum = matches.reduce((max, match) => { const num = parseInt(match.replace(/[{}]/g, '')); return Math.max(max, num); }, 0); console.log('Max placeholder number:', maxNum);

@@ -1549,15 +1549,42 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
               console.log('🔧 Template variables (named):', templateVariables);
 
               // Convert named variables to numbered variables for WhatsApp Business
+              // CRITICAL: WhatsApp requires EXACT number of parameters, even if empty
+              
+              // First, detect how many numbered placeholders are in the template content
+              const placeholderMatches = template.content.match(/\{\{(\d+)\}\}/g) || [];
+              const maxPlaceholderNumber = placeholderMatches.reduce((max, match) => {
+                const num = parseInt(match.replace(/[{}]/g, ''));
+                return Math.max(max, num);
+              }, 0);
+              
+              console.log(`🔍 Template content has placeholders up to {{${maxPlaceholderNumber}}}`);
+              console.log(`📊 Variables array length: ${template.variables ? template.variables.length : 0}`);
+              
+              // Use the actual number of placeholders in content, not variables array length
+              const actualParameterCount = maxPlaceholderNumber;
+              
               const numberedVariables = {};
               if (template.variables && Array.isArray(template.variables)) {
                 template.variables.forEach((varName, index) => {
                   const variableNumber = (index + 1).toString();
-                  numberedVariables[variableNumber] = templateVariables[varName] || '';
+                  // Only include if this parameter number is actually used in template
+                  if (index < actualParameterCount) {
+                    numberedVariables[variableNumber] = templateVariables[varName] || '';
+                  }
                 });
               }
               
+              // Ensure we have exactly the number of parameters the WhatsApp template expects
+              for (let i = 1; i <= actualParameterCount; i++) {
+                const key = i.toString();
+                if (!numberedVariables[key]) {
+                  numberedVariables[key] = ''; // Fill missing variables with empty string
+                }
+              }
+              
               console.log('📋 Numbered variables for WhatsApp:', numberedVariables);
+              console.log(`🔢 Template expects ${actualParameterCount} parameters, sending ${Object.keys(numberedVariables).length} variables`);
 
               console.log(`📱 Sending to ${formattedPhone} with template ${template.twilioSid}`);
               
