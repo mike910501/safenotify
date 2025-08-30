@@ -489,4 +489,58 @@ router.get('/whatsapp-config', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Eliminar plantilla
+router.delete('/templates/:id', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const template = await prisma.template.findUnique({
+      where: { id },
+      include: {
+        campaigns: {
+          select: { id: true, status: true }
+        }
+      }
+    });
+
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template no encontrada'
+      });
+    }
+
+    // Verificar si tiene campañas activas
+    const activeCampaigns = template.campaigns.filter(c => 
+      c.status === 'draft' || c.status === 'sending'
+    );
+
+    if (activeCampaigns.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se puede eliminar una plantilla que tiene campañas activas'
+      });
+    }
+
+    // Eliminar plantilla
+    await prisma.template.delete({
+      where: { id }
+    });
+
+    console.log(`🗑️ Admin ${req.user.email} eliminó template: ${template.name}`);
+
+    res.json({
+      success: true,
+      message: 'Plantilla eliminada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
 module.exports = router;

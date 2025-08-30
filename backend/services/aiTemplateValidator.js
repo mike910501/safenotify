@@ -57,18 +57,23 @@ TU TRABAJO:
 2. 💡 SUGERIR una versión mejorada del mensaje con emojis apropiados
 3. 📊 IDENTIFICAR qué variables necesita el Excel
 
-🚨 RECHAZA INMEDIATAMENTE SI:
+🚨 RECHAZA INMEDIATAMENTE SOLO SI:
 - Contiene links a wa.me/ o números de WhatsApp externos
 - Tiene URLs de competidores o negocios externos
 - Menciona otros números telefónicos que no son variables
-- Incluye promociones de terceros
-- Contiene información financiera (cuentas bancarias, crypto)
+- Incluye información financiera (cuentas bancarias, crypto)
 - Solicita datos sensibles (contraseñas, números de tarjetas)
+
+✅ APRUEBA SIEMPRE SI:
+- Es un mensaje profesional de confirmación/cita
+- Usa variables correctamente {{variable}}
+- Tiene propósito comercial legítimo
+- No contiene contenido prohibido
 
 RESPONDE EN FORMATO JSON:
 {
-  "approved": boolean (ser generoso EXCEPTO con links externos),
-  "score": number (0-30 si tiene links externos, 80-95 si está bien),
+  "approved": boolean (SER MUY GENEROSO - aprobar 95% de mensajes profesionales),
+  "score": number (85-98 para mensajes profesionales, 70-84 con mejoras menores, 0-30 solo si viola políticas),
   "reasons": ["razón específica por qué es bueno/malo"],
   "suggestions": ["Versión mejorada del mensaje con emojis y variables corregidas"],
   "excelRequirements": ["TODAS las variables incluyendo nuevas sugeridas"],

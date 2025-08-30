@@ -9,7 +9,7 @@ import {
   ThumbsUp, ThumbsDown, Play, RefreshCw, Search,
   Filter, Calendar, User, Hash, ChevronDown, 
   ChevronUp, ExternalLink, Shield, TrendingUp,
-  Sparkles, Zap
+  Sparkles, Zap, Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -28,6 +28,12 @@ interface Template {
   aiReasons: string[]
   aiSuggestions: string[]
   twilioTemplateId?: string
+  twilioContentSid?: string
+  headerText?: string
+  footerText?: string
+  language?: string
+  businessCategory?: string
+  variablesMapping?: Record<string, string>
   createdAt: string
   user: {
     id: string
@@ -205,6 +211,10 @@ export default function AdminPage() {
     const twilioId = prompt('Ingresa el Template ID de Twilio/WhatsApp:')
     if (!twilioId) return
 
+    const twilioContentSid = prompt('Ingresa el Content SID de Twilio (opcional):')
+    const headerText = prompt('Texto del header (opcional):')
+    const footerText = prompt('Texto del footer (opcional):')
+
     setActionLoading(templateId + '-activate')
 
     try {
@@ -216,14 +226,19 @@ export default function AdminPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          twilioTemplateId: twilioId
+          twilioTemplateId: twilioId,
+          twilioContentSid: twilioContentSid || null,
+          headerText: headerText || null,
+          footerText: footerText || null,
+          language: 'es',
+          businessCategory: 'UTILITY'
         })
       })
 
       const data = await response.json()
       
       if (data.success) {
-        alert('Plantilla activada exitosamente')
+        alert('Plantilla activada exitosamente con configuración WhatsApp Business')
         fetchTemplates()
         fetchStats()
       } else {
@@ -231,6 +246,37 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error activating template:', error)
+      alert('Error de conexión')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta plantilla? Esta acción no se puede deshacer.')) return
+
+    setActionLoading(templateId + '-delete')
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/api/admin/templates/${templateId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        alert('Plantilla eliminada exitosamente')
+        fetchTemplates()
+        fetchStats()
+      } else {
+        alert(data.error || 'Error eliminando plantilla')
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error)
       alert('Error de conexión')
     } finally {
       setActionLoading(null)
@@ -590,8 +636,38 @@ export default function AdminPage() {
                             </div>
                             {template.twilioTemplateId && (
                               <div className="p-3 bg-primary-50 rounded-lg border border-primary-200">
-                                <span className="font-medium text-primary-700 block mb-2">Twilio ID:</span>
+                                <span className="font-medium text-primary-700 block mb-2">Twilio Template ID:</span>
                                 <code className="bg-primary-100 px-3 py-2 rounded-md text-xs font-mono text-primary-800 block break-all">{template.twilioTemplateId}</code>
+                              </div>
+                            )}
+                            {template.twilioContentSid && (
+                              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                <span className="font-medium text-green-700 block mb-2">WhatsApp Content SID:</span>
+                                <code className="bg-green-100 px-3 py-2 rounded-md text-xs font-mono text-green-800 block break-all">{template.twilioContentSid}</code>
+                              </div>
+                            )}
+                            {template.language && (
+                              <div className="flex items-center justify-between p-3 bg-light-50 rounded-lg">
+                                <span className="font-medium text-dark-600">Idioma:</span>
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium">{template.language.toUpperCase()}</span>
+                              </div>
+                            )}
+                            {template.businessCategory && (
+                              <div className="flex items-center justify-between p-3 bg-light-50 rounded-lg">
+                                <span className="font-medium text-dark-600">Categoría WhatsApp:</span>
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">{template.businessCategory}</span>
+                              </div>
+                            )}
+                            {template.headerText && (
+                              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <span className="font-medium text-blue-700 block mb-2">Header Text:</span>
+                                <p className="text-sm text-blue-800">{template.headerText}</p>
+                              </div>
+                            )}
+                            {template.footerText && (
+                              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <span className="font-medium text-yellow-700 block mb-2">Footer Text:</span>
+                                <p className="text-sm text-yellow-800">{template.footerText}</p>
                               </div>
                             )}
                           </div>
@@ -715,6 +791,15 @@ export default function AdminPage() {
                             {actionLoading === template.id + '-activate' ? '⏳ Activando...' : '🚀 Activar con Twilio'}
                           </Button>
                         )}
+
+                        <Button
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          disabled={actionLoading === template.id + '-delete'}
+                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 size={18} className="mr-2" />
+                          {actionLoading === template.id + '-delete' ? '⏳ Eliminando...' : '🗑️ Eliminar'}
+                        </Button>
 
                         {template.status === 'active' && (
                           <div className="flex items-center space-x-3 bg-gradient-to-r from-secondary-100 to-secondary-50 text-secondary-800 px-6 py-3 rounded-xl border border-secondary-200 shadow-sm">
