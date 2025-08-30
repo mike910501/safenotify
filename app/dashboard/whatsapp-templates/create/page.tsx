@@ -293,7 +293,7 @@ export default function CreateWhatsAppTemplatePage() {
                   <textarea
                     value={formData.bodyText}
                     onChange={(e) => handleInputChange('bodyText', e.target.value)}
-                    placeholder="Hola {{1}}, tu cita para {{2}} el {{3}} a las {{4}} está confirmada."
+                    placeholder="Hola {1}, tu cita para {2} el {3} a las {4} está confirmada."
                     rows={6}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                       errors.bodyText ? 'border-red-300' : 'border-gray-300'
@@ -303,7 +303,7 @@ export default function CreateWhatsAppTemplatePage() {
                     <p className="text-red-600 text-xs mt-1">{errors.bodyText}</p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    Usa {{1}}, {{2}}, {{3}} para variables dinámicas
+                    Usa {`{{1}}, {{2}}, {{3}}`} para variables dinámicas
                   </p>
                 </div>
 
@@ -466,7 +466,7 @@ export default function CreateWhatsAppTemplatePage() {
                         <li>• El template será enviado a Meta para revisión</li>
                         <li>• El proceso puede tomar 24-48 horas</li>
                         <li>• Solo templates aprobados pueden usarse en campañas</li>
-                        <li>• Variables deben ser secuenciales ({{1}}, {{2}}, {{3}})</li>
+                        <li>• Variables deben ser secuenciales ({`{{1}}, {{2}}, {{3}}`})</li>
                       </ul>
                     </div>
                   </div>
