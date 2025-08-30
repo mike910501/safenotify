@@ -1022,7 +1022,7 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                       placeholder="ej. nombre, fecha, hora, servicio"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Estas variables se pueden usar como {{1}}, {{2}}, etc. en el mensaje
+                      Estas variables se pueden usar como {`{{1}}`}, {`{{2}}`}, etc. en el mensaje
                     </p>
                   </div>
 
@@ -1149,10 +1149,10 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                 onChange={(e) => setFormData({...formData, content: e.target.value})}
                 rows={6}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
-                placeholder="Hola {{1}}, tu cita para {{2}} está confirmada para el {{3}} a las {{4}}. ¡Te esperamos!"
+                placeholder="Hola {`{{1}}`}, tu cita para {`{{2}}`} está confirmada para el {`{{3}}`} a las {`{{4}}`}. ¡Te esperamos!"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Usa {{1}}, {{2}}, {{3}}, etc. para las variables. Corresponden al orden de las variables definidas arriba.
+                Usa {`{{1}}`}, {`{{2}}`}, {`{{3}}`}, etc. para las variables. Corresponden al orden de las variables definidas arriba.
               </p>
             </Card>
 
