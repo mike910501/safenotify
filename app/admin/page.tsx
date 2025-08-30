@@ -66,6 +66,8 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showActivateModal, setShowActivateModal] = useState(false)
+  const [templateToActivate, setTemplateToActivate] = useState<Template | null>(null)
 
   // Verificar permisos de admin
   useEffect(() => {
@@ -210,48 +212,11 @@ export default function AdminPage() {
     }
   }
 
-  const handleActivateTemplate = async (templateId: string) => {
-    const twilioId = prompt('Ingresa el Template ID de Twilio/WhatsApp:')
-    if (!twilioId) return
-
-    const twilioContentSid = prompt('Ingresa el Content SID de Twilio (opcional):')
-    const headerText = prompt('Texto del header (opcional):')
-    const footerText = prompt('Texto del footer (opcional):')
-
-    setActionLoading(templateId + '-activate')
-
-    try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${API_URL}/api/admin/templates/${templateId}/activate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          twilioTemplateId: twilioId,
-          twilioContentSid: twilioContentSid || null,
-          headerText: headerText || null,
-          footerText: footerText || null,
-          language: 'es',
-          businessCategory: 'UTILITY'
-        })
-      })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        toast.success('Plantilla activada exitosamente', 'La plantilla está ahora activa con configuración WhatsApp Business y lista para envío')
-        fetchTemplates()
-        fetchStats()
-      } else {
-        toast.error('Error activando plantilla', data.error || 'No se pudo activar la plantilla')
-      }
-    } catch (error) {
-      console.error('Error activating template:', error)
-      toast.error('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión a internet')
-    } finally {
-      setActionLoading(null)
+  const handleActivateTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId)
+    if (template) {
+      setTemplateToActivate(template)
+      setShowActivateModal(true)
     }
   }
 
@@ -850,6 +815,303 @@ export default function AdminPage() {
         }}
         toast={toast}
       />
+
+      {/* Modal de Activación de Plantilla */}
+      <ActivateTemplateModal 
+        isOpen={showActivateModal}
+        onClose={() => {
+          setShowActivateModal(false)
+          setTemplateToActivate(null)
+        }}
+        template={templateToActivate}
+        onSuccess={() => {
+          setShowActivateModal(false)
+          setTemplateToActivate(null)
+          fetchTemplates()
+          fetchStats()
+        }}
+        toast={toast}
+        setActionLoading={setActionLoading}
+        actionLoading={actionLoading}
+      />
+    </div>
+  )
+}
+
+// Modal Component for Activating Templates
+function ActivateTemplateModal({ 
+  isOpen, 
+  onClose, 
+  template, 
+  onSuccess, 
+  toast, 
+  setActionLoading, 
+  actionLoading 
+}: {
+  isOpen: boolean
+  onClose: () => void
+  template: Template | null
+  onSuccess: () => void
+  toast: any
+  setActionLoading: (loading: string | null) => void
+  actionLoading: string | null
+}) {
+  const [formData, setFormData] = useState({
+    twilioTemplateId: '',
+    twilioContentSid: '',
+    headerText: '',
+    footerText: '',
+    language: 'es',
+    businessCategory: 'UTILITY'
+  })
+
+  // Reset form when template changes
+  useEffect(() => {
+    if (template) {
+      setFormData({
+        twilioTemplateId: template.twilioTemplateId || '',
+        twilioContentSid: template.twilioContentSid || '',
+        headerText: template.headerText || '',
+        footerText: template.footerText || '',
+        language: template.language || 'es',
+        businessCategory: template.businessCategory || 'UTILITY'
+      })
+    }
+  }, [template])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!template) return
+    if (!formData.twilioTemplateId.trim()) {
+      toast.error('Campo requerido', 'El Template ID de Twilio es obligatorio')
+      return
+    }
+
+    setActionLoading(template.id + '-activate')
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/api/admin/templates/${template.id}/activate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('Plantilla activada exitosamente', 'La plantilla está ahora activa con configuración WhatsApp Business y lista para envío')
+        onSuccess()
+      } else {
+        toast.error('Error activando plantilla', data.error || 'No se pudo activar la plantilla')
+      }
+    } catch (error) {
+      console.error('Error activating template:', error)
+      toast.error('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión a internet')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  if (!isOpen || !template) return null
+
+  const isLoading = actionLoading === template.id + '-activate'
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                Activar Plantilla con WhatsApp Business
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Configurar "{template.name}" para envío de mensajes
+              </p>
+            </div>
+            <Button 
+              onClick={onClose}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-3 rounded-lg"
+              disabled={isLoading}
+            >
+              <XCircle size={24} />
+            </Button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Configuración Principal */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <MessageSquare className="w-5 h-5 mr-2 text-green-600" />
+                Configuración de WhatsApp Business
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Template ID de Twilio/WhatsApp *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.twilioTemplateId}
+                    onChange={(e) => setFormData({...formData, twilioTemplateId: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="HX..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    ID de la plantilla aprobada en WhatsApp Business Manager
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Content SID de Twilio (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.twilioContentSid}
+                    onChange={(e) => setFormData({...formData, twilioContentSid: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="HX... (opcional)"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Idioma
+                    </label>
+                    <select
+                      value={formData.language}
+                      onChange={(e) => setFormData({...formData, language: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    >
+                      <option value="es">Español</option>
+                      <option value="en">English</option>
+                      <option value="pt">Português</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Categoría Business
+                    </label>
+                    <select
+                      value={formData.businessCategory}
+                      onChange={(e) => setFormData({...formData, businessCategory: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    >
+                      <option value="UTILITY">Utilidad</option>
+                      <option value="MARKETING">Marketing</option>
+                      <option value="AUTHENTICATION">Autenticación</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Textos Opcionales */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                Textos Adicionales (Opcional)
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Header Text
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.headerText}
+                    onChange={(e) => setFormData({...formData, headerText: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Texto del encabezado (opcional)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Footer Text
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.footerText}
+                    onChange={(e) => setFormData({...formData, footerText: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Texto del pie de página (opcional)"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Preview de la Plantilla */}
+            <Card className="p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <Eye className="w-5 h-5 mr-2 text-purple-600" />
+                Vista Previa de la Plantilla
+              </h3>
+              
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  {formData.headerText && (
+                    <div className="text-sm font-medium text-gray-700 mb-2 border-b pb-2">
+                      {formData.headerText}
+                    </div>
+                  )}
+                  
+                  <div className="text-gray-800 whitespace-pre-wrap">
+                    {template.content}
+                  </div>
+                  
+                  {formData.footerText && (
+                    <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                      {formData.footerText}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* Botones de Acción */}
+            <div className="flex justify-end space-x-4 pt-6 border-t">
+              <Button
+                type="button"
+                onClick={onClose}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-3"
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw size={18} className="mr-2 animate-spin" />
+                    Activando...
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} className="mr-2" />
+                    Activar Plantilla
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }
