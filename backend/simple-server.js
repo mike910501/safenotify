@@ -19,8 +19,15 @@ const analyticsRoutes = require('./routes/analytics');
 const schedulerService = require('./services/schedulerService');
 const blacklistService = require('./services/blacklistService');
 
-// Import WebSocket and Queue systems - TEMPORARILY DISABLED FOR SOFIA ADMIN FIX
-// const CampaignProgressTracker = require('./websocket/campaignProgress');
+// Import WebSocket and Queue systems
+let CampaignProgressTracker;
+try {
+  CampaignProgressTracker = require('./websocket/campaignProgress');
+  console.log('✅ WebSocket module loaded');
+} catch (error) {
+  console.log('⚠️ WebSocket module skipped:', error.message);
+  CampaignProgressTracker = null;
+}
 const http = require('http');
 
 // Database connection
@@ -2398,13 +2405,26 @@ app.delete('/api/user/delete-account', authenticateToken, async (req, res) => {
   }
 });
 
+// Sofia admin routes - Already mounted above at line 2262
+console.log('🤖 Sofia admin routes already mounted at /api/admin/sofia');
+
 // Create HTTP server for WebSocket integration
 const server = http.createServer(app);
 
-// Initialize WebSocket progress tracker - TEMPORARILY DISABLED FOR SOFIA ADMIN FIX
-// const campaignProgressTracker = new CampaignProgressTracker(server);
-// global.campaignProgressTracker = campaignProgressTracker;
-console.log('📡 WebSocket tracker temporarily disabled for Sofia admin fix');
+// Initialize WebSocket progress tracker - SKIP for Sofia fix
+if (CampaignProgressTracker) {
+  try {
+    const campaignProgressTracker = new CampaignProgressTracker(server);
+    global.campaignProgressTracker = campaignProgressTracker;
+    console.log('✅ WebSocket initialized successfully');
+  } catch (error) {
+    console.log('⚠️ WebSocket failed to initialize:', error.message);
+    global.campaignProgressTracker = null;
+  }
+} else {
+  console.log('⚠️ WebSocket skipped - module not available');
+  global.campaignProgressTracker = null;
+}
 
 server.listen(PORT, async () => {
   console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT} - Enhanced with WebSocket`);
@@ -2418,9 +2438,8 @@ server.listen(PORT, async () => {
   
   // Initialize scheduler service
   try {
-    console.log(`⏰ Scheduler Service: Skipped initialization temporarily for Sofia admin fix`);
     // await schedulerService.initialize();
-    // console.log(`⏰ Scheduler Service: Initialized for message scheduling`);
+    console.log(`⏰ Scheduler Service: Skipped for Sofia admin fix`);
   } catch (error) {
     console.error('❌ Failed to initialize Scheduler Service:', error);
   }
