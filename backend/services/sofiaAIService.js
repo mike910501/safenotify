@@ -2,6 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 const safenotifyDemoService = require('./safenotifyDemoService');
 const openaiService = require('./openaiService');
 const dynamicPromptService = require('./dynamicPromptService');
+const fallbackService = require('./fallbackResponseService');
+const twilioService = require('../config/twilio');
 const prisma = new PrismaClient();
 
 /**
@@ -160,6 +162,11 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
     console.log('🎯 Sofia AI - Processing message from:', phoneNumber.substring(0, 8) + '***');
     console.log('📝 Message content:', messageText.substring(0, 50) + '...');
 
+    // Check if message is a button press (interactive message response)
+    if (isButtonPress(messageText)) {
+      return await handleButtonPress(phoneNumber, messageText, messageSid);
+    }
+
     // Find or create lead
     const lead = await createOrFindLead(phoneNumber);
 
@@ -292,21 +299,31 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
     return {
       success: true,
       response: response.message,
+      buttons: response.buttons || null,
+      interactive: response.interactive || false,
       nextStep: response.nextStep,
       leadScore: response.leadScore || lead.qualificationScore,
       shouldSendContent: response.shouldSendContent || false,
       contentToSend: response.contentToSend || null,
-      handoffRequired: response.handoffRequired || false
+      handoffRequired: response.handoffRequired || false,
+      fallback: response.fallback || false
     };
 
   } catch (error) {
     console.error('❌ Sofia AI processing error:', error);
     
-    // Fallback response
+    // Activate interactive fallback
+    console.log('🔄 Activating emergency interactive fallback...');
+    const emergencyFallback = fallbackService.getInitialFallbackResponse();
+    const formattedFallback = fallbackService.formatResponseForWhatsApp(emergencyFallback);
+    
     return {
       success: false,
-      response: "Disculpa, tuve un problema técnico. Soy Sofia de SafeNotify, ¿podrías repetir tu consulta?",
+      response: formattedFallback.text,
+      buttons: formattedFallback.buttons,
+      interactive: true,
       nextStep: CONVERSATION_STATES.GREETING_CLINIC,
+      fallback: true,
       error: error.message
     };
   }
@@ -1066,7 +1083,21 @@ async function generateSofiaResponseWithDynamicPrompt(conversation, messageText,
     );
 
     if (!aiResponse.success) {
-      console.log('⚠️ AI response failed, falling back');
+      console.log('⚠️ AI response failed, activating interactive fallback');
+      
+      // Check if it's an interactive fallback response
+      if (aiResponse.interactive && aiResponse.buttons) {
+        return {
+          message: aiResponse.message,
+          buttons: aiResponse.buttons,
+          interactive: true,
+          fallback: true,
+          nextStep: conversation.currentStep || CONVERSATION_STATES.GREETING_CLINIC,
+          leadUpdates: {},
+          shouldSendContent: false
+        };
+      }
+      
       return await generateSofiaResponse(conversation, messageText, intent);
     }
 
@@ -1108,6 +1139,110 @@ function calculateLeadScore(lead) {
   if (lead.specialty && MEDICAL_SPECIALTY_SCORING.premium.specialties.includes(lead.specialty)) score += 10;
   
   return Math.min(score, 100);
+}
+
+/**
+ * Check if message is a button press from interactive message
+ */
+function isButtonPress(messageText) {
+  // WhatsApp sends button responses as the button ID or title
+  const buttonIds = ['about_safenotify', 'templates_methodology', 'plans_pricing', 'contact_advisor', 'demo_request'];
+  const buttonTitles = ['🏢 Acerca SafeNotify', '📋 Plantillas', '💰 Planes', '👨‍💼 Contactar', '🖥️ Demo Gratis'];
+  
+  return buttonIds.includes(messageText.toLowerCase()) || 
+         buttonTitles.some(title => messageText.includes(title.split(' ')[1])) ||
+         messageText.includes('Acerca') || messageText.includes('Plantillas') || 
+         messageText.includes('Planes') || messageText.includes('Contactar') || messageText.includes('Demo');
+}
+
+/**
+ * Handle button press and send appropriate response
+ */
+async function handleButtonPress(phoneNumber, messageText, messageSid = null) {
+  try {
+    console.log('🔘 Handling button press:', messageText);
+
+    // Find or create lead
+    const lead = await createOrFindLead(phoneNumber);
+
+    // Determine which button was pressed
+    let buttonId = 'default';
+    if (messageText.includes('Acerca') || messageText.includes('about_safenotify')) {
+      buttonId = 'about_safenotify';
+    } else if (messageText.includes('Plantillas') || messageText.includes('templates_methodology')) {
+      buttonId = 'templates_methodology';
+    } else if (messageText.includes('Planes') || messageText.includes('plans_pricing')) {
+      buttonId = 'plans_pricing';
+    } else if (messageText.includes('Contactar') || messageText.includes('contact_advisor')) {
+      buttonId = 'contact_advisor';
+    } else if (messageText.includes('Demo') || messageText.includes('demo_request')) {
+      buttonId = 'demo_request';
+    }
+
+    // Get appropriate fallback response
+    const fallbackResponse = fallbackService.handleButtonPress(buttonId, {
+      phone: phoneNumber,
+      leadId: lead.id
+    });
+
+    // Send interactive message via Twilio
+    const twilioResponse = await twilioService.sendInteractiveMessage(
+      phoneNumber,
+      fallbackResponse.text,
+      fallbackResponse.buttons
+    );
+
+    console.log('📤 Interactive response sent:', twilioResponse.success ? 'SUCCESS' : 'FAILED');
+
+    // Update conversation history
+    const conversation = await findOrCreateConversation(lead.id, phoneNumber);
+    
+    const newMessages = [
+      ...(conversation.messages || []),
+      {
+        role: 'user',
+        content: messageText,
+        timestamp: new Date().toISOString(),
+        messageSid: messageSid,
+        buttonPress: true
+      },
+      {
+        role: 'assistant',
+        content: fallbackResponse.text,
+        timestamp: new Date().toISOString(),
+        personality: 'sofia',
+        interactive: true,
+        buttons: fallbackResponse.buttons
+      }
+    ];
+
+    await prisma.safeNotifyConversation.update({
+      where: { id: conversation.id },
+      data: {
+        messages: newMessages,
+        messageCount: { increment: 2 },
+        currentStep: 'interactive_fallback',
+        updatedAt: new Date()
+      }
+    });
+
+    return {
+      success: true,
+      message: fallbackResponse.text,
+      buttons: fallbackResponse.buttons,
+      interactive: true,
+      messageSent: twilioResponse.success,
+      leadId: lead.id
+    };
+
+  } catch (error) {
+    console.error('❌ Error handling button press:', error);
+    return {
+      success: false,
+      error: error.message,
+      fallback: true
+    };
+  }
 }
 
 /**

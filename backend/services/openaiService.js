@@ -1,4 +1,6 @@
 const OpenAI = require('openai');
+const fallbackService = require('./fallbackResponseService');
+const twilioService = require('../config/twilio');
 
 /**
  * OpenAI Service - Real AI responses for Sofia
@@ -214,11 +216,19 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
 
   } catch (error) {
     console.error('❌ Custom prompt OpenAI error:', error.message);
+    console.log('🔄 Activating interactive fallback system...');
+    
+    // Activate interactive fallback system
+    const fallbackResponse = fallbackService.getInitialFallbackResponse();
+    const formattedResponse = fallbackService.formatResponseForWhatsApp(fallbackResponse);
+    
     return {
       success: false,
-      message: "Disculpa, tuve un momento de lag. Soy Sofia de SafeNotify, ¿en qué te puedo ayudar?",
+      message: formattedResponse.text,
+      buttons: formattedResponse.buttons,
       error: error.message,
-      fallback: true
+      fallback: true,
+      interactive: true
     };
   }
 }
@@ -280,13 +290,19 @@ async function generateNaturalResponse(conversationHistory, leadContext, current
 
   } catch (error) {
     console.error('❌ OpenAI error:', error.message);
+    console.log('🔄 Activating interactive fallback system...');
     
-    // Fallback to basic response
+    // Activate interactive fallback system
+    const fallbackResponse = fallbackService.getInitialFallbackResponse();
+    const formattedResponse = fallbackService.formatResponseForWhatsApp(fallbackResponse);
+    
     return {
       success: false,
-      message: "Disculpa, tuve un momento de lag. Soy Sofia de SafeNotify, ¿en qué te puedo ayudar?",
+      message: formattedResponse.text,
+      buttons: formattedResponse.buttons,
       error: error.message,
-      fallback: true
+      fallback: true,
+      interactive: true
     };
   }
 }

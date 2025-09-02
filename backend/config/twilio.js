@@ -35,6 +35,93 @@ class TwilioService {
     }
   }
 
+  async sendInteractiveMessage(to, text, buttons) {
+    try {
+      const phoneNumber = this.formatPhoneNumber(to);
+      
+      logger.info('Sending WhatsApp interactive message', {
+        to: phoneNumber,
+        text: text.substring(0, 50) + '...',
+        buttonCount: buttons.length
+      });
+
+      const message = await this.client.messages.create({
+        from: this.whatsappNumber,
+        to: `whatsapp:${phoneNumber}`,
+        body: JSON.stringify({
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: {
+              text: text
+            },
+            action: {
+              buttons: buttons.map((btn, index) => ({
+                type: 'reply',
+                reply: {
+                  id: btn.id || `btn_${index}`,
+                  title: btn.title.substring(0, 20) // WhatsApp limit
+                }
+              }))
+            }
+          }
+        })
+      });
+
+      logger.info('WhatsApp interactive message sent', {
+        messageSid: message.sid,
+        to: phoneNumber
+      });
+
+      return {
+        success: true,
+        messageSid: message.sid,
+        status: message.status,
+        to: phoneNumber
+      };
+
+    } catch (error) {
+      logger.error('Failed to send interactive message', {
+        to,
+        error: error.message
+      });
+
+      // Fallback: send as regular text message
+      return await this.sendTextMessage(to, text);
+    }
+  }
+
+  async sendTextMessage(to, text) {
+    try {
+      const phoneNumber = this.formatPhoneNumber(to);
+      
+      const message = await this.client.messages.create({
+        from: this.whatsappNumber,
+        to: `whatsapp:${phoneNumber}`,
+        body: text
+      });
+
+      return {
+        success: true,
+        messageSid: message.sid,
+        status: message.status,
+        to: phoneNumber
+      };
+
+    } catch (error) {
+      logger.error('Failed to send text message', {
+        to,
+        error: error.message
+      });
+
+      return {
+        success: false,
+        error: error.message,
+        to: this.formatPhoneNumber(to)
+      };
+    }
+  }
+
   async sendTemplateMessage(to, contentSid, contentVariables = {}) {
     try {
       // Validate phone number format
