@@ -19,8 +19,8 @@ const analyticsRoutes = require('./routes/analytics');
 const schedulerService = require('./services/schedulerService');
 const blacklistService = require('./services/blacklistService');
 
-// Import WebSocket and Queue systems
-const CampaignProgressTracker = require('./websocket/campaignProgress');
+// Import WebSocket and Queue systems - TEMPORARILY DISABLED FOR SOFIA ADMIN FIX
+// const CampaignProgressTracker = require('./websocket/campaignProgress');
 const http = require('http');
 
 // Database connection
@@ -2401,9 +2401,10 @@ app.delete('/api/user/delete-account', authenticateToken, async (req, res) => {
 // Create HTTP server for WebSocket integration
 const server = http.createServer(app);
 
-// Initialize WebSocket progress tracker
-const campaignProgressTracker = new CampaignProgressTracker(server);
-global.campaignProgressTracker = campaignProgressTracker;
+// Initialize WebSocket progress tracker - TEMPORARILY DISABLED FOR SOFIA ADMIN FIX
+// const campaignProgressTracker = new CampaignProgressTracker(server);
+// global.campaignProgressTracker = campaignProgressTracker;
+console.log('📡 WebSocket tracker temporarily disabled for Sofia admin fix');
 
 server.listen(PORT, async () => {
   console.log(`🚀 SafeNotify Backend server running on http://localhost:${PORT} - Enhanced with WebSocket`);
@@ -2417,8 +2418,9 @@ server.listen(PORT, async () => {
   
   // Initialize scheduler service
   try {
-    await schedulerService.initialize();
-    console.log(`⏰ Scheduler Service: Initialized for message scheduling`);
+    console.log(`⏰ Scheduler Service: Skipped initialization temporarily for Sofia admin fix`);
+    // await schedulerService.initialize();
+    // console.log(`⏰ Scheduler Service: Initialized for message scheduling`);
   } catch (error) {
     console.error('❌ Failed to initialize Scheduler Service:', error);
   }

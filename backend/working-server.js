@@ -84,6 +84,10 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/templates-ai', templatesAIRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Sofia admin routes for lead management
+const sofiaAdminRoutes = require('./routes/adminDashboard');
+app.use('/api/admin/sofia', sofiaAdminRoutes);
+
 // API documentation
 app.get('/api', (req, res) => {
   res.json({
