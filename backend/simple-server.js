@@ -2405,6 +2405,69 @@ app.delete('/api/user/delete-account', authenticateToken, async (req, res) => {
   }
 });
 
+// 🚨 SOFIA ADMIN ENDPOINT - DIRECTO PARA ARREGLAR 404
+app.get('/api/admin/sofia/conversations', verifyToken, async (req, res) => {
+  try {
+    console.log('🤖 SOFIA ADMIN: Fetching conversations for admin...');
+
+    // Verificar admin role
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Get all SafeNotify leads with their conversations
+    const leads = await prisma.safeNotifyLead.findMany({
+      include: {
+        conversations: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      },
+      orderBy: { lastActivity: 'desc' }
+    });
+
+    // Format data for admin dashboard
+    const conversationSummaries = leads.map(lead => {
+      const recentConversation = lead.conversations[0];
+      
+      return {
+        id: lead.id,
+        phone: lead.phone,
+        name: lead.name || 'Sin nombre',
+        email: lead.email || 'Sin email',
+        specialty: lead.specialty || 'No identificada',
+        qualificationScore: lead.qualificationScore,
+        grade: lead.grade,
+        status: lead.status,
+        lastActivity: lead.lastActivity,
+        messageCount: recentConversation?.messageCount || 0,
+        createdAt: lead.createdAt
+      };
+    });
+
+    console.log(`✅ SOFIA ADMIN: Retrieved ${conversationSummaries.length} conversation summaries`);
+
+    res.json({
+      success: true,
+      conversations: conversationSummaries,
+      total: conversationSummaries.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ SOFIA ADMIN ERROR:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Sofia conversations',
+      message: error.message
+    });
+  }
+});
+
 // Sofia admin routes - Already mounted above at line 2262
 console.log('🤖 Sofia admin routes already mounted at /api/admin/sofia');
 
