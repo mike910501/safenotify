@@ -242,6 +242,14 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
     };
 
     const finalMessages = [...updatedMessages, sofiaMessage];
+    
+    // Update prompt AFTER Sofia responds to include her response
+    console.log('🔄 Updating prompt after Sofia response...');
+    await dynamicPromptService.updatePromptWithSummary(
+      lead.id,
+      finalMessages, // Include Sofia's response in the summary
+      { content: response.message, role: 'assistant' }
+    );
 
     // Update conversation and lead state
     await prisma.safeNotifyConversation.update({

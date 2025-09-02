@@ -195,7 +195,7 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: messages,
-      max_tokens: 150,
+      max_tokens: 250, // Increased for ~20 lines
       temperature: 0.7,
       presence_penalty: 0.1,
       frequency_penalty: 0.1
@@ -262,7 +262,7 @@ async function generateNaturalResponse(conversationHistory, leadContext, current
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: messages,
-      max_tokens: 150,
+      max_tokens: 250, // Increased for ~20 lines
       temperature: 0.7,
       presence_penalty: 0.1,
       frequency_penalty: 0.1

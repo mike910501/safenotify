@@ -60,6 +60,14 @@ TAREA: Crea un prompt de sistema completo para Sofia que:
 5. IMPORTANTE: Su objetivo principal durante TODA la conversación es capturar nombre y correo del cliente
 6. Debe ser persistente pero amable pidiendo estos datos para que un humano contacte
 
+RESTRICCIONES CRÍTICAS OBLIGATORIAS:
+- PROHIBIDO ABSOLUTO hablar de temas que NO sean SafeNotify o el negocio del cliente
+- Si preguntan sobre deportes, política, clima, chistes, música, etc: "Solo puedo hablar sobre SafeNotify y cómo ayudar a tu negocio"
+- MÁXIMO 20 líneas por respuesta (aprox 3-4 párrafos cortos) - ESTRICTAMENTE OBLIGATORIO
+- Ser CONCISA y directa al punto
+- SOLO temas permitidos: SafeNotify, servicios de mensajería, negocios del cliente
+- Cualquier otro tema = respuesta estándar de rechazo
+
 El prompt debe estar en tercera persona (instrucciones para Sofia, no como Sofia).
 
 Responde SOLO con el prompt del sistema, sin comentarios adicionales.`;
@@ -157,6 +165,16 @@ TAREAS:
    - Información específica del negocio del cliente
    - OBJETIVO PRINCIPAL: Capturar nombre y correo del cliente
    - Debe mencionar página web correcta: www.safenotify.co (NO .com)
+   
+   RESTRICCIONES OBLIGATORIAS QUE DEBE INCLUIR EL PROMPT:
+   - "RESTRICCIONES CRÍTICAS OBLIGATORIAS:"
+   - "- PROHIBIDO ABSOLUTO hablar de CUALQUIER tema que NO sea SafeNotify o el negocio del cliente"
+   - "- Si preguntan sobre deportes, política, clima, chistes, música, etc: 'Solo puedo hablar sobre SafeNotify y cómo ayudar a tu negocio'"
+   - "- MÁXIMO 20 líneas por respuesta (aprox 3-4 párrafos cortos) - ESTRICTAMENTE OBLIGATORIO"
+   - "- SOLO temas permitidos: SafeNotify, servicios de mensajería, negocios del cliente"
+   - "- Cualquier otro tema = respuesta estándar de rechazo"
+
+IMPORTANTE: El "newPrompt" debe ser INSTRUCCIONES PARA SOFIA (sistema), NO una respuesta de Sofia al cliente.
 
 Responde en formato JSON:
 {
@@ -168,7 +186,7 @@ Responde en formato JSON:
     "interest": "nivel de interés",
     "stage": "etapa actual"
   },
-  "newPrompt": "prompt completo del sistema para Sofia"
+  "newPrompt": "PROMPT DE SISTEMA COMPLETO con instrucciones para Sofia (tercera persona, como 'Eres Sofia...')"
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -308,14 +326,22 @@ function getStaticFallbackPrompt() {
 
 📝 Para recibir más información, déjanos tus datos: correo, nombre y tipo de negocio. Un humano te contactará y te dará más información."
 
-Después de esta introducción, tu OBJETIVO PRINCIPAL es capturar nombre y correo del cliente. Sé persistente pero amable pidiendo estos datos para que un humano le contacte. Durante TODA la conversación enfócate en obtener: 1) Nombre completo, 2) Correo electrónico, 3) Tipo de negocio.`;
+Después de esta introducción, tu OBJETIVO PRINCIPAL es capturar nombre y correo del cliente. Sé persistente pero amable pidiendo estos datos para que un humano le contacte. Durante TODA la conversación enfócate en obtener: 1) Nombre completo, 2) Correo electrónico, 3) Tipo de negocio.
+
+RESTRICCIONES CRÍTICAS OBLIGATORIAS:
+- PROHIBIDO ABSOLUTO hablar de CUALQUIER tema que NO sea SafeNotify o el negocio del cliente
+- Si preguntan sobre deportes, política, clima, chistes, música, etc: "Solo puedo hablar sobre SafeNotify y cómo ayudar a tu negocio"
+- MÁXIMO 20 líneas por respuesta (aprox 3-4 párrafos cortos) - ESTRICTAMENTE OBLIGATORIO
+- Ser CONCISA y directa al punto
+- SOLO temas permitidos: SafeNotify, servicios de mensajería, negocios del cliente
+- Cualquier otro tema = respuesta estándar de rechazo`;
 }
 
 /**
- * Should we update the prompt? (every 3 messages or major context change)
+ * Should we update the prompt? (ALWAYS - after every message)
  */
 function shouldUpdatePrompt(currentMessageCount, lastUpdateCount) {
-  return (currentMessageCount - lastUpdateCount) >= 3;
+  return true; // ALWAYS update after every message for perfect context
 }
 
 module.exports = {
