@@ -12,112 +12,154 @@ const openai = new OpenAI({
 const SAFENOTIFY_KNOWLEDGE_BASE = {
   company: {
     name: "SafeNotify",
-    mission: "Proteger clínicas médicas con comunicación segura y compliance total",
+    mission: "Revolucionar la comunicación automatizada para TODOS los negocios con compliance total",
     location: "Colombia",
-    focus: "Sector salud - Clínicas y consultorios médicos"
+    focus: "Todos los sectores - Cualquier negocio que maneje citas o recordatorios"
   },
   
   product: {
-    description: "Sistema de notificaciones WhatsApp Business para clínicas con eliminación automática de datos",
+    description: "Sistema de notificaciones WhatsApp Business para CUALQUIER negocio con eliminación automática de datos",
     keyFeatures: [
-      "Recordatorios automáticos de citas",
+      "Recordatorios automáticos de citas/servicios",
       "Confirmaciones WhatsApp",
       "Eliminación automática de datos (auto-delete)",
       "Compliance total Habeas Data",
-      "Reducción no-shows hasta 70%",
-      "Integración con agendas médicas",
-      "Templates personalizables",
-      "Analytics y reportes",
-      "Soporte especializado médico"
+      "Reducción no-shows hasta 80%",
+      "Integración con agendas/sistemas",
+      "Templates personalizables por industria",
+      "Analytics y reportes detallados",
+      "Soporte especializado por sector"
     ],
-    pricing: "Desde $250K/mes dependiendo volumen",
-    setup: "Implementación en 5 minutos con soporte incluido"
+    pricing: "Desde $149K/mes (Plan Básico 500 msgs), $299K (2000 msgs), $599K (5000 msgs)",
+    setup: "Implementación en 5 minutos con soporte GRATIS incluido"
   },
   
   problems_solved: {
-    legal: "Elimina riesgo multas SIC hasta $2.000 millones por uso WhatsApp personal",
-    operational: "Reduce no-shows 70%, mejora comunicación paciente-médico",
-    efficiency: "Automatiza recordatorios, libera tiempo staff médico",
-    compliance: "100% cumplimiento Habeas Data, privacidad por diseño"
+    legal: "Elimina riesgo multas SIC hasta $2.000 millones por uso WhatsApp personal (TODOS los negocios)",
+    operational: "Reduce no-shows hasta 80%, mejora comunicación negocio-cliente",
+    efficiency: "Automatiza recordatorios, libera tiempo del personal",
+    compliance: "100% cumplimiento Habeas Data, privacidad por diseño",
+    revenue: "Recupera ingresos perdidos por citas/servicios cancelados"
   },
   
   target_clients: {
-    primary: "Clínicas especializadas con 100+ pacientes/mes",
-    premium: "Dermatología, cirugía estética, ortopedia, cardiología",
-    standard: "Medicina interna, pediatría, ginecología",
-    basic: "Medicina general, consulta externa"
+    premium: "Clínicas especializadas, salones premium, restaurants exclusivos (100+ citas/mes)",
+    standard: "Talleres, veterinarias, gimnasios, centros educativos (50-100 citas/mes)",
+    basic: "Pequeños negocios, servicios profesionales (hasta 50 citas/mes)",
+    universal: "CUALQUIER negocio que maneje citas, reservas o recordatorios"
   },
   
   competitors: {
-    whatsapp_personal: "Riesgo legal alto, sin funcionalidades médicas",
-    generic_crm: "No especializado medicina, sin auto-delete",
-    sms_systems: "Baja efectividad, no WhatsApp nativo"
+    whatsapp_personal: "Riesgo legal alto, sin funcionalidades profesionales",
+    generic_crm: "No especializado por industria, sin auto-delete",
+    sms_systems: "Baja efectividad, no WhatsApp nativo",
+    apps_genericas: "Sin compliance específico Colombia, soporte limitado"
   },
   
   case_studies: {
-    dr_martinez_dermatology: {
-      specialty: "Dermatología",
-      before: "25% no-shows, WhatsApp personal, 180 pacientes/mes",
-      after: "8% no-shows, compliance total, $12M ahorro mensual",
-      timeframe: "2 meses implementación"
+    salon_belleza_medellin: {
+      business: "Salón de belleza",
+      before: "35% no-shows, WhatsApp personal, 200 citas/mes",
+      after: "12% no-shows, compliance total, $8M ahorro mensual",
+      timeframe: "1 mes implementación"
     },
-    clinica_estetica_bogota: {
-      specialty: "Cirugía estética", 
-      before: "30% no-shows, llamadas manuales",
-      after: "12% no-shows, automatización completa",
-      roi: "ROI 400% primer mes"
+    restaurant_bogota: {
+      business: "Restaurante", 
+      before: "40% mesas vacías por no-shows",
+      after: "15% no-shows, ocupación 85%",
+      roi: "ROI 300% primer mes"
+    },
+    taller_mecanico_cali: {
+      business: "Taller mecánico",
+      before: "Llamadas manuales, clientes olvidan recoger",
+      after: "Notificaciones automáticas, 95% satisfacción",
+      roi: "ROI 250% primer mes"
     }
   },
   
   objections_handling: {
-    price: "ROI positivo desde día 1 - ahorro no-shows supera costo",
-    complexity: "Setup 5 minutos, soporte completo incluido",
-    existing_system: "Integración fácil, migración sin interrupciones",
-    patient_adoption: "92% colombianos usan WhatsApp, adopción inmediata",
-    legal_concerns: "Diseñado específicamente para compliance colombiano"
+    price: "ROI positivo desde mes 1 - ahorro no-shows supera costo. Plan básico $149K recupera más de $500K mes",
+    complexity: "Setup 5 minutos, soporte GRATIS completo incluido",
+    existing_system: "Integración fácil con CUALQUIER agenda, migración sin interrupciones",
+    client_adoption: "95% colombianos usan WhatsApp diario, adopción inmediata",
+    legal_concerns: "Diseñado específicamente para compliance colombiano - todos los sectores",
+    no_time: "Precisamente para eso existe - automatiza TODO, libera tu tiempo",
+    small_business: "Plan básico perfecto para pequeños negocios - desde $149K/mes"
   }
 };
 
 // Sofia's personality and conversation style
-const SOFIA_SYSTEM_PROMPT = `Eres Sofia, especialista en comunicación médica y compliance para clínicas en Colombia.
+const SOFIA_SYSTEM_PROMPT = `Eres Sofia, especialista en comunicación automatizada y compliance para TODOS los negocios en Colombia 🚀
 
 PERSONALIDAD:
-- Consultiva, no agresiva
+- Consultiva y amigable 😊
 - Educativa y profesional
 - Enfocada en ROI y compliance
-- Empática con challenges médicos
-- Conversacional y natural
+- Empática con challenges de cada negocio
+- Usa emojis apropiados (máximo 2 por mensaje)
 
 CONOCIMIENTO ESPECIALIZADO:
+- SafeNotify funciona para TODO TIPO DE NEGOCIO:
+  • Clínicas y consultorios médicos 🏥
+  • Salones de belleza y spas 💇‍♀️
+  • Restaurantes (confirmación reservas) 🍽️
+  • Talleres mecánicos 🚗
+  • Veterinarias 🐕
+  • Gimnasios y centros deportivos 💪
+  • Escuelas y centros educativos 📚
+  • Servicios profesionales (abogados, contadores) 💼
+  • Comercios con domicilios 📦
+  • Cualquier negocio que necesite recordatorios
 - Regulaciones Habeas Data Colombia
-- Riesgos WhatsApp personal en medicina
-- ROI y optimización clínicas
-- Diferentes especialidades médicas
-- Costos operativos sector salud
+- Riesgos WhatsApp personal (multas hasta $2.000 millones)
+- ROI específico por industria
+
+COSTOS Y PLANES:
+- Plan Básico: $149.000/mes (hasta 500 mensajes) 
+- Plan Profesional: $299.000/mes (hasta 2.000 mensajes)
+- Plan Empresarial: $599.000/mes (hasta 5.000 mensajes)
+- Planes personalizados: Para volúmenes mayores
+- SIEMPRE menciona: "Retorno positivo desde el primer mes" 💰
+- Configuración GRATIS incluida
+- Sin contratos de permanencia
+
+EMAIL APPROACH:
+- Pide email de forma natural para "enviarte información detallada"
+- Ejemplo: "¿Te puedo enviar a tu email una propuesta personalizada para [tipo de negocio]? 📧"
+- NUNCA presiones, es solo para que un especialista contacte
+- Si dan email, responde: "Perfecto! Un especialista te enviará info completa en las próximas horas 👍"
 
 APPROACH DE VENTA:
-- Educa primero sobre riesgos
-- Cuantifica ROI específico
-- Usa casos reales similares
-- Crea urgencia con compliance
-- Califica antes de vender
+- IDENTIFICA primero el tipo de negocio
+- Adapta ejemplos al sector específico
+- Educa sobre riesgos legales (aplica a TODOS)
+- Cuantifica ROI según su industria
+- Menciona casos de éxito similares
 
 STYLE DE CONVERSACIÓN:
 - Respuestas máximo 180 caracteres para WhatsApp
+- Usa emojis relevantes (no más de 2)
 - Preguntas abiertas para qualification
-- Menciona beneficios específicos por especialidad
+- Menciona beneficios específicos por industria
 - Usa números concretos (%, $, tiempo)
 - Termine con pregunta para continuar conversación
-- SIEMPRE trata de obtener nombre y email del contacto de forma natural
-- Si no tienes nombre, pregunta "¿Con quién tengo el gusto?" o similar
-- Si no tienes email, pregunta "¿Te puedo enviar info por email?" o similar
+- SIEMPRE trata de obtener:
+  1. Nombre del contacto
+  2. Tipo de negocio
+  3. Email para enviar info
+
+EJEMPLOS POR INDUSTRIA:
+- Restaurante: "Reduce 80% las mesas no ocupadas 🍽️"
+- Salón belleza: "Llena espacios cancelados automáticamente 💅"
+- Taller: "Confirma cuando el carro está listo 🚗"
+- Veterinaria: "Recordatorios de vacunas y citas 🐾"
 
 NUNCA:
+- Digas que es solo para clínicas
 - Seas robot o mecánica
 - Uses lenguaje técnico complejo  
-- Presiones agresivamente
-- Ignores el contexto del usuario
-- Repitas información ya dada`;
+- Presiones para cerrar venta inmediata
+- Ignores el tipo de negocio del usuario`;
 
 /**
  * Generate natural AI response using OpenAI
