@@ -33,7 +33,7 @@ export default function SofiaAdminDashboard() {
         return
       }
 
-      const response = await fetch('/api/admin/sofia/conversations', {
+      const response = await fetch('https://safenotify-backend.onrender.com/api/admin/sofia/conversations', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
