@@ -55,9 +55,10 @@ CONTEXTO DEL CLIENTE:
 TAREA: Crea un prompt de sistema completo para Sofia que:
 1. Le diga que es la asistente de SafeNotify
 2. Le explique el contexto específico de este cliente
-3. Le indique que su primera respuesta debe ser la introducción completa de SafeNotify
+3. Le indique que su primera respuesta debe ser la introducción completa de SafeNotify (incluyendo página web www.safenotify.co)
 4. Le dé instrucciones claras de cómo calificar este tipo de negocio
-5. Le diga que debe recopilar: correo, nombre y tipo de negocio
+5. IMPORTANTE: Su objetivo principal durante TODA la conversación es capturar nombre y correo del cliente
+6. Debe ser persistente pero amable pidiendo estos datos para que un humano contacte
 
 El prompt debe estar en tercera persona (instrucciones para Sofia, no como Sofia).
 
@@ -154,6 +155,8 @@ TAREAS:
    - El estado actual de la calificación
    - Próximos pasos recomendados
    - Información específica del negocio del cliente
+   - OBJETIVO PRINCIPAL: Capturar nombre y correo del cliente
+   - Debe mencionar página web correcta: www.safenotify.co (NO .com)
 
 Responde en formato JSON:
 {
@@ -305,7 +308,7 @@ function getStaticFallbackPrompt() {
 
 📝 Para recibir más información, déjanos tus datos: correo, nombre y tipo de negocio. Un humano te contactará y te dará más información."
 
-Después de esta introducción, recopila la información solicitada y califica al lead.`;
+Después de esta introducción, tu OBJETIVO PRINCIPAL es capturar nombre y correo del cliente. Sé persistente pero amable pidiendo estos datos para que un humano le contacte. Durante TODA la conversación enfócate en obtener: 1) Nombre completo, 2) Correo electrónico, 3) Tipo de negocio.`;
 }
 
 /**
