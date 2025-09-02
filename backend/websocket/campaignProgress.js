@@ -26,9 +26,9 @@ class CampaignProgressTracker {
 
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        socket.userId = decoded.id;
+        socket.userId = decoded.userId;
         socket.userEmail = decoded.email;
-        console.log(`🔌 Socket authenticated for user: ${decoded.email} (${decoded.id})`);
+        console.log(`🔌 Socket authenticated for user: ${decoded.userId}`);
         next();
       } catch (err) {
         console.error('Socket authentication failed:', err.message);
