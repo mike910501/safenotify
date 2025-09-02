@@ -172,26 +172,47 @@ campaignQueue.process('send-campaign', async (job) => {
         // Prepare message with template variables
         const messageContent = prepareMessageContent(template.content, contact);
         
-        // Create message payload
+        // Create message payload with proper WhatsApp format
+        const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER.startsWith('whatsapp:') 
+          ? process.env.TWILIO_WHATSAPP_NUMBER 
+          : `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`;
+          
         const messagePayload = {
-          from: process.env.TWILIO_WHATSAPP_NUMBER,
+          from: fromNumber,
           to: `whatsapp:${contact.phone}`,
           body: messageContent
         };
 
-        // Add template SID if available
-        if (template.twilioContentSid) {
-          messagePayload.contentSid = template.twilioContentSid;
+        // Add template SID if available with fallback priority  
+        const contentSid = template.twilioContentSid || template.twilioSid || template.twilioTemplateId;
+        if (contentSid) {
+          messagePayload.contentSid = contentSid;
           delete messagePayload.body; // Use template instead of body
+          console.log(`📨 Queue: Using ContentSID: ${contentSid}`);
           
-          // Add template variables if needed
+          // Add template variables with PROPER MAPPING
           if (template.variables && template.variables.length > 0) {
-            messagePayload.contentVariables = JSON.stringify(
-              template.variables.reduce((acc, variable, index) => {
-                acc[(index + 1).toString()] = contact[variable] || contact.name;
-                return acc;
-              }, {})
-            );
+            const templateVariables = {};
+            
+            template.variables.forEach((varName, varIndex) => {
+              let value = '';
+              
+              // Use same priority logic as immediate processing
+              if (variableMappings && variableMappings[varName]) {
+                const csvColumn = variableMappings[varName];
+                value = contact[csvColumn] || '';
+              } else if (defaultValues && defaultValues[varName]) {
+                value = defaultValues[varName];
+              } else {
+                value = contact[varName] || '';
+              }
+              
+              // Use variable NAME as key, not number - Twilio expects variable names
+              templateVariables[varName] = value;
+            });
+            
+            messagePayload.contentVariables = JSON.stringify(templateVariables);
+            console.log('📋 Queue: Template variables being sent:', templateVariables);
           }
         }
 

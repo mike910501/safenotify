@@ -1664,8 +1664,7 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
               }
               
               if (template.variables && Array.isArray(template.variables)) {
-                template.variables.forEach((varName, varIndex) => {
-                  const variableNumber = (varIndex + 1).toString();
+                template.variables.forEach((varName) => {
                   let value = '';
                   
                   // Priority: userMapping -> defaultValue -> csvColumn -> empty
@@ -1684,7 +1683,8 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                     console.log(`📋 ${varName} -> direct CSV = '${value}'`);
                   }
                   
-                  templateVariables[variableNumber] = value;
+                  // Use variable NAME as key, not number - Twilio expects variable names
+                  templateVariables[varName] = value;
                 });
               }
               
@@ -1695,10 +1695,15 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
                 ? process.env.TWILIO_WHATSAPP_NUMBER 
                 : `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`;
               
+              // Use proper Content SID with fallback priority
+              const contentSid = template.twilioContentSid || template.twilioSid || template.twilioTemplateId;
+              console.log(`📨 Sending with ContentSID: ${contentSid}`);
+              console.log(`📨 Variables being sent: ${JSON.stringify(templateVariables)}`);
+              
               const message = await client.messages.create({
                 from: fromNumber,
                 to: whatsappNumber,
-                contentSid: template.twilioSid,
+                contentSid: contentSid,
                 contentVariables: JSON.stringify(templateVariables)
               });
 

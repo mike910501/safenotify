@@ -400,12 +400,12 @@ router.post('/templates/:id/test', verifyToken, verifyAdmin, async (req, res) =>
     // Initialize Twilio client
     const client = twilio(config.twilioAccountSid, decrypt(config.twilioAuthToken));
 
-    // Prepare variables for Twilio
+    // Prepare variables for Twilio using variable NAMES as keys
     const variables = {};
-    if (template.variablesMapping && testVariables) {
-      Object.keys(template.variablesMapping).forEach(key => {
-        const variableName = template.variablesMapping[key];
-        variables[key] = testVariables[variableName] || `Test ${variableName}`;
+    if (template.variables && testVariables) {
+      template.variables.forEach(varName => {
+        // Use variable name as key, not number
+        variables[varName] = testVariables[varName] || `Test ${varName}`;
       });
     }
 

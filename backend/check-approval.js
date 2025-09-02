@@ -45,9 +45,13 @@ async function checkApprovalStatus() {
     // Intentar también verificar el estado en WhatsApp Business API
     console.log('VERIFICANDO DISPONIBILIDAD PARA WHATSAPP...');
     try {
+      const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER.startsWith('whatsapp:') 
+        ? process.env.TWILIO_WHATSAPP_NUMBER 
+        : `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`;
+        
       const testMessage = await client.messages.create({
         contentSid: 'HXbc1e5efe4e4da98d9fcb19a1c76be1b1',
-        from: process.env.TWILIO_WHATSAPP_NUMBER,
+        from: fromNumber,
         to: 'whatsapp:+573108800753', // Número de prueba
         contentVariables: JSON.stringify({
           nombre: 'TEST',
