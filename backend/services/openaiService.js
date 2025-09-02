@@ -162,6 +162,68 @@ NUNCA:
 - Ignores el tipo de negocio del usuario`;
 
 /**
+ * Generate natural AI response using custom dynamic prompt
+ */
+async function generateNaturalResponseWithCustomPrompt(conversationHistory, customPrompt, businessContext, currentIntent) {
+  try {
+    console.log('🤖 Generating AI response with custom prompt...');
+
+    // Prepare conversation history for AI
+    const messages = [
+      {
+        role: "system",
+        content: customPrompt
+      }
+    ];
+
+    // Add recent conversation history
+    const recentMessages = conversationHistory.slice(-6); // Last 6 messages
+    recentMessages.forEach(msg => {
+      if (msg.role === 'user') {
+        messages.push({
+          role: "user", 
+          content: msg.content
+        });
+      } else if (msg.role === 'assistant') {
+        messages.push({
+          role: "assistant",
+          content: msg.content
+        });
+      }
+    });
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: messages,
+      max_tokens: 150,
+      temperature: 0.7,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1
+    });
+
+    const response = completion.choices[0].message.content.trim();
+    
+    console.log('✅ Custom prompt response generated:', response.substring(0, 60) + '...');
+    
+    return {
+      success: true,
+      message: response,
+      tokens_used: completion.usage.total_tokens,
+      customPrompt: true
+    };
+
+  } catch (error) {
+    console.error('❌ Custom prompt OpenAI error:', error.message);
+    return {
+      success: false,
+      message: "Disculpa, tuve un momento de lag. Soy Sofia de SafeNotify, ¿en qué te puedo ayudar?",
+      error: error.message,
+      fallback: true
+    };
+  }
+}
+
+/**
  * Generate natural AI response using OpenAI
  */
 async function generateNaturalResponse(conversationHistory, leadContext, currentIntent) {
@@ -355,6 +417,7 @@ async function analyzeConversationSentiment(conversationHistory) {
 
 module.exports = {
   generateNaturalResponse,
+  generateNaturalResponseWithCustomPrompt,
   analyzeConversationSentiment,
   SAFENOTIFY_KNOWLEDGE_BASE
 };

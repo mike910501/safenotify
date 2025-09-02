@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const safenotifyDemoService = require('./safenotifyDemoService');
 const openaiService = require('./openaiService');
+const dynamicPromptService = require('./dynamicPromptService');
 const prisma = new PrismaClient();
 
 /**
@@ -197,8 +198,40 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
       }
     });
 
-    // Generate Sofia's response based on current state and intent
-    const response = await generateSofiaResponse(conversation, messageText, intent);
+    // Check if we need to generate/update dynamic prompt
+    let dynamicPrompt = null;
+    const messageCount = updatedMessages.length;
+    
+    if (messageCount === 1) {
+      // First message - generate initial prompt
+      console.log('🎯 First message detected, generating initial prompt...');
+      dynamicPrompt = await dynamicPromptService.generateInitialPrompt(
+        lead.id,
+        phoneNumber,
+        messageText
+      );
+    } else {
+      // Check if we should update prompt (every 3 messages)
+      const currentPrompt = await dynamicPromptService.getCurrentPrompt(lead.id);
+      if (dynamicPromptService.shouldUpdatePrompt(messageCount, 0)) {
+        console.log('🔄 Updating prompt with conversation summary...');
+        dynamicPrompt = await dynamicPromptService.updatePromptWithSummary(
+          lead.id,
+          updatedMessages,
+          { content: messageText }
+        );
+      } else {
+        dynamicPrompt = currentPrompt;
+      }
+    }
+
+    // Generate Sofia's response using dynamic prompt
+    const response = await generateSofiaResponseWithDynamicPrompt(
+      conversation, 
+      messageText, 
+      intent, 
+      dynamicPrompt
+    );
 
     // Add Sofia's response to conversation
     const sofiaMessage = {
@@ -1002,6 +1035,57 @@ function calculateGrade(score) {
   if (score >= 70) return 'A'; // Hot lead
   if (score >= 40) return 'B'; // Warm lead
   return 'C'; // Cold lead
+}
+
+/**
+ * Generate Sofia's response using dynamic AI-generated prompt
+ */
+async function generateSofiaResponseWithDynamicPrompt(conversation, messageText, intent, dynamicPrompt) {
+  try {
+    console.log('🤖 Generating Sofia response with dynamic prompt...');
+    
+    if (!dynamicPrompt || !dynamicPrompt.success) {
+      console.log('⚠️ No dynamic prompt available, falling back to static');
+      return await generateSofiaResponse(conversation, messageText, intent);
+    }
+
+    // Use OpenAI with the dynamic prompt
+    const aiResponse = await openaiService.generateNaturalResponseWithCustomPrompt(
+      conversation.messages || [],
+      dynamicPrompt.systemPrompt,
+      dynamicPrompt.businessContext,
+      intent
+    );
+
+    if (!aiResponse.success) {
+      console.log('⚠️ AI response failed, falling back');
+      return await generateSofiaResponse(conversation, messageText, intent);
+    }
+
+    // Analyze next step (keep existing logic)
+    const nextStepAnalysis = await determineNextStep(
+      aiResponse.message,
+      conversation.lead,
+      { engagement: 'medium', objections: [] },
+      conversation.currentStep
+    );
+
+    return {
+      message: aiResponse.message,
+      nextStep: nextStepAnalysis.nextStep,
+      leadUpdates: nextStepAnalysis.leadUpdates || {},
+      shouldSendContent: nextStepAnalysis.shouldSendContent || false,
+      contentToSend: nextStepAnalysis.contentToSend,
+      handoffRequired: nextStepAnalysis.handoffRequired || false,
+      aiGenerated: true,
+      dynamicPrompt: true,
+      tokens_used: aiResponse.tokens_used
+    };
+
+  } catch (error) {
+    console.error('❌ Dynamic prompt response failed:', error);
+    return await generateSofiaResponse(conversation, messageText, intent);
+  }
 }
 
 /**
