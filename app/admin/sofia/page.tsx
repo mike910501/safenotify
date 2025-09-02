@@ -91,13 +91,20 @@ export default function SofiaAdminDashboard() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Sofia AI - Admin Dashboard</h1>
-            <p className="text-gray-600">Monitor SafeNotify sales conversations</p>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">🤖</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Sofia AI - Dashboard de Leads</h1>
+                <p className="text-gray-600">Monitoreo de conversaciones de ventas para TODOS los negocios 🚀</p>
+              </div>
+            </div>
             <button 
               onClick={() => router.push('/admin')}
-              className="mt-2 text-blue-600 hover:text-blue-800"
+              className="mt-3 inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
             >
-              ← Back to Main Admin
+              ← Volver al Admin Principal
             </button>
           </div>
         </div>
@@ -151,12 +158,12 @@ export default function SofiaAdminDashboard() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specialty</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacto</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo de Negocio</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Messages</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Activity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grado</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mensajes</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Última Actividad</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">

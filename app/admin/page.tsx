@@ -373,6 +373,15 @@ export default function AdminPage() {
               
               <div className="flex space-x-3">
                 <Button 
+                  onClick={() => router.push('/admin/sofia')} 
+                  className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  size="lg"
+                >
+                  <Bot size={16} className="mr-2" />
+                  Sofia Dashboard
+                </Button>
+                
+                <Button 
                   onClick={fetchTemplates} 
                   className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                   size="lg"
