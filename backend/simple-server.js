@@ -1311,6 +1311,42 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
     const { name, templateSid, variableMappings, defaultValues } = req.body;
     const csvFile = req.file;
     console.log('📋 Request body:', { name, templateSid, variableMappings, defaultValues });
+
+    // IMPROVED JSON sanitization for FormData corruption
+    const sanitizeJson = (jsonString) => {
+      if (!jsonString) return '{}';
+      
+      try {
+        let cleaned = jsonString.trim();
+        console.log('🔧 Sanitizing JSON:', cleaned);
+        
+        // Fix common FormData corruptions
+        cleaned = cleaned.replace(/^"?\{/, '{');        // Remove opening quotes
+        cleaned = cleaned.replace(/\}"?$/, '}');        // Remove closing quotes
+        cleaned = cleaned.replace(/"\{([^"]+)"/g, '"$1"'); // Fix key corruption
+        
+        // Ensure proper closing
+        if (!cleaned.endsWith('}')) {
+          cleaned += '}';
+        }
+        
+        console.log('🔧 Cleaned JSON:', cleaned);
+        
+        // Validate
+        JSON.parse(cleaned);
+        return cleaned;
+        
+      } catch (error) {
+        console.warn('⚠️ JSON sanitization failed, using fallback:', jsonString);
+        return '{}';
+      }
+    };
+
+    const sanitizedVariableMappings = sanitizeJson(variableMappings);
+    const sanitizedDefaultValues = sanitizeJson(defaultValues);
+    
+    console.log('✅ Final sanitized mappings:', sanitizedVariableMappings);
+    console.log('✅ Final sanitized defaults:', sanitizedDefaultValues);
     console.log('📁 File:', csvFile ? 'Present' : 'Missing');
 
     if (!csvFile) {
@@ -1539,8 +1575,8 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
         template: template,
         userId: req.user.id,
         userName: currentUser.name || 'Usuario',
-        variableMappings: variableMappings ? JSON.parse(variableMappings) : {},
-        defaultValues: defaultValues ? JSON.parse(defaultValues) : {}
+        variableMappings: JSON.parse(sanitizedVariableMappings),
+        defaultValues: JSON.parse(sanitizedDefaultValues)
       }, jobOptions);
       
       console.log(`⏳ Campaign job queued: ${job.id} with priority ${jobOptions.priority}`);
@@ -1611,30 +1647,44 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
               const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+57${phoneNumber}`;
               const whatsappNumber = `whatsapp:${formattedPhone}`;
 
-              // Build template variables (simplified version)
+              // Build template variables using PROPER MAPPING LOGIC
               const templateVariables = {};
               let defaultVals = {};
+              let varMappings = {};
               
               try {
-                defaultVals = defaultValues ? JSON.parse(defaultValues) : {};
+                defaultVals = JSON.parse(sanitizedDefaultValues);
+                varMappings = JSON.parse(sanitizedVariableMappings);
+                console.log('🔧 Using mappings:', varMappings);
+                console.log('🔧 Using defaults:', defaultVals);
               } catch (e) {
-                console.log('⚠️ Could not parse defaultValues:', defaultValues);
+                console.error('⚠️ Could not parse variables:', e.message);
+                defaultVals = {};
+                varMappings = {};
               }
               
               if (template.variables && Array.isArray(template.variables)) {
-                template.variables.forEach((varName, index) => {
-                  const variableNumber = (index + 1).toString();
+                template.variables.forEach((varName, varIndex) => {
+                  const variableNumber = (varIndex + 1).toString();
+                  let value = '';
                   
-                  switch(varName) {
-                    case 'nombre':
-                      templateVariables[variableNumber] = contact.nombre || contact.Nombre || contact.name || 'Cliente';
-                      break;
-                    case 'hora':
-                      templateVariables[variableNumber] = contact.hora || contact.Hora || contact.time || defaultVals[varName] || '';
-                      break;
-                    default:
-                      templateVariables[variableNumber] = contact[varName] || defaultVals[varName] || '';
+                  // Priority: userMapping -> defaultValue -> csvColumn -> empty
+                  if (varMappings[varName]) {
+                    // User mapped this variable to a CSV column
+                    const csvColumn = varMappings[varName];
+                    value = contact[csvColumn] || '';
+                    console.log(`📋 ${varName} -> mapped to CSV '${csvColumn}' = '${value}'`);
+                  } else if (defaultVals[varName]) {
+                    // Use default value
+                    value = defaultVals[varName];
+                    console.log(`📋 ${varName} -> default value = '${value}'`);
+                  } else {
+                    // Fallback to direct mapping
+                    value = contact[varName] || '';
+                    console.log(`📋 ${varName} -> direct CSV = '${value}'`);
                   }
+                  
+                  templateVariables[variableNumber] = value;
                 });
               }
               
