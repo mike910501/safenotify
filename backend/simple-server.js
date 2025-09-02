@@ -2202,6 +2202,10 @@ app.use('/api/payments', paymentRoutes);
 // Mount admin routes (includes WhatsApp Business functionality)
 app.use('/api/admin', adminRoutes);
 
+// Sofia Admin Dashboard
+const sofiaAdminRoutes = require('./routes/adminDashboard');
+app.use('/api/admin/sofia', sofiaAdminRoutes);
+
 // Mount campaign progress routes
 app.use('/api/progress', campaignProgressRoutes);
 

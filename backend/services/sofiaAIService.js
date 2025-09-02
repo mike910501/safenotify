@@ -175,6 +175,10 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
 
     const updatedMessages = [...(conversation.messages || []), newMessage];
 
+    // Extract personal information from message
+    const personalInfo = extractPersonalInfo(messageText);
+    console.log('👤 Extracted personal info:', personalInfo);
+
     // Analyze message and determine intent
     const intent = detectIntent(messageText, lead.conversationState);
     console.log('🧠 Detected intent:', intent);
@@ -217,15 +221,27 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
     });
 
     // Update lead with new qualification data and score
-    if (response.leadUpdates) {
+    const leadUpdateData = {
+      ...(response.leadUpdates || {}),
+      conversationState: response.nextStep,
+      lastActivity: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Add personal info if extracted
+    if (personalInfo.name && !lead.name) {
+      leadUpdateData.name = personalInfo.name;
+      console.log('✅ Name extracted and saved:', personalInfo.name);
+    }
+    if (personalInfo.email && !lead.email) {
+      leadUpdateData.email = personalInfo.email;
+      console.log('✅ Email extracted and saved:', personalInfo.email);
+    }
+
+    if (Object.keys(leadUpdateData).length > 3) { // More than just the default 3 fields
       await prisma.safeNotifyLead.update({
         where: { id: lead.id },
-        data: {
-          ...response.leadUpdates,
-          conversationState: response.nextStep,
-          lastActivity: new Date(),
-          updatedAt: new Date()
-        }
+        data: leadUpdateData
       });
     }
 
@@ -905,6 +921,37 @@ function extractSpecialty(text) {
     }
   }
   return null;
+}
+
+function extractPersonalInfo(text) {
+  const personalInfo = {};
+  
+  // Extract name patterns
+  const namePatterns = [
+    /soy\s+([a-záéíóúñ\s]+)/i,
+    /me\s+llamo\s+([a-záéíóúñ\s]+)/i,
+    /mi\s+nombre\s+es\s+([a-záéíóúñ\s]+)/i,
+    /doctor\s+([a-záéíóúñ\s]+)/i,
+    /dr\.?\s+([a-záéíóúñ\s]+)/i,
+    /dra\.?\s+([a-záéíóúñ\s]+)/i
+  ];
+  
+  for (const pattern of namePatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      personalInfo.name = match[1].trim().split(' ').slice(0, 2).join(' '); // First two words
+      break;
+    }
+  }
+  
+  // Extract email
+  const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
+  const emailMatch = text.match(emailPattern);
+  if (emailMatch) {
+    personalInfo.email = emailMatch[1].toLowerCase();
+  }
+  
+  return personalInfo;
 }
 
 function extractPatientVolume(text) {
