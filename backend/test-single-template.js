@@ -9,10 +9,10 @@ async function testSingleTemplate() {
     const client = twilioService.client;
     console.log('✅ Twilio client initialized');
     
-    // Get the "vecimiento_codumentos" template specifically
+    // Get the "asignacion de labores" template specifically
     const template = await prisma.template.findFirst({
       where: { 
-        name: 'vecimiento_codumentos',
+        name: 'asignacion de labores',
         status: 'active' 
       },
       select: {
@@ -36,13 +36,10 @@ async function testSingleTemplate() {
     
     const testPhone = '+573133592457';
     const testData = {
-      empresa: 'ENERVISA',
       nombre: 'Michael Huertas',
-      placa_vehiculo: 'MTX08E',
-      tipo_documento: 'Licencia de Conducción',
-      fecha_vencimiento: '25 de Septiembre 2025',
-      dias_restantes: '10',
-      link_renovacion: 'https://enervisa.gov.co/renovar'
+      empresa: 'ENERVISA',
+      fecha: '16 de Septiembre 2025',
+      direccion: 'Carrera 7 #32-40, Bogotá'
     };
     
     console.log(`📊 Test data:`, testData);
@@ -62,15 +59,19 @@ async function testSingleTemplate() {
       contentSid: contentSid
     };
     
-    // Map template variables correctly
+    // Map template variables correctly - USING VARIABLE NAMES (FIX APPLIED)
     if (template.variables && template.variables.length > 0) {
       const templateVariables = {};
       
-      template.variables.forEach((varName, varIndex) => {
-        const variableNumber = (varIndex + 1).toString();
-        let value = testData[varName] || 'NO_DATA';
-        templateVariables[variableNumber] = value;
-        console.log(`   Variable ${variableNumber} (${varName}): "${value}"`);
+      // FIXED: Error 63028 - Handle duplicate variables correctly  
+      const uniqueVariables = [...new Set(template.variables)];
+      console.log(`📋 Original variables: [${template.variables.join(', ')}] (${template.variables.length})`);
+      console.log(`📋 Unique variables: [${uniqueVariables.join(', ')}] (${uniqueVariables.length})`);
+      
+      uniqueVariables.forEach((varName) => {
+        let value = testData[varName] || `TEST_${varName}`;
+        templateVariables[varName] = value; // Use variable NAME as key, not number!
+        console.log(`   ${varName}: "${value}"`);
       });
       
       messagePayload.contentVariables = JSON.stringify(templateVariables);

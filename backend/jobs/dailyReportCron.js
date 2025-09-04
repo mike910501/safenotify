@@ -58,7 +58,7 @@ async function triggerDailyReportNow() {
 }
 
 console.log('✅ Daily report cron job scheduled for 5:00 PM Colombia time every day');
-console.log('📋 Next execution will be at:', dailyReportJob.getStatus());
+// console.log('📋 Next execution will be at:', dailyReportJob.getStatus());
 
 module.exports = {
   dailyReportJob,

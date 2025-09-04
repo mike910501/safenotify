@@ -30,8 +30,16 @@ try {
 }
 
 // Import Daily Report Cron Job
-const { dailyReportJob, triggerDailyReportNow } = require('./jobs/dailyReportCron');
-console.log('📧 Daily report cron job loaded and scheduled');
+let dailyReportJob, triggerDailyReportNow;
+try {
+  const dailyReportModule = require('./jobs/dailyReportCron');
+  dailyReportJob = dailyReportModule.dailyReportJob;
+  triggerDailyReportNow = dailyReportModule.triggerDailyReportNow;
+  console.log('📧 Daily report cron job loaded and scheduled');
+} catch (error) {
+  console.log('⚠️ Daily report cron job failed to load:', error.message);
+  triggerDailyReportNow = () => Promise.reject(new Error('Daily report service not available'));
+}
 
 const http = require('http');
 
@@ -273,6 +281,9 @@ app.get('/api/templates', (req, res) => {
 app.post('/api/test-daily-report', async (req, res) => {
   try {
     console.log('🔥 Manual trigger: Sending daily report now...');
+    if (!triggerDailyReportNow) {
+      throw new Error('Daily report service not available');
+    }
     const result = await triggerDailyReportNow();
     res.json({
       success: true,
