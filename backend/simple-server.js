@@ -1671,7 +1671,12 @@ app.post('/api/campaigns/create', authenticateToken, campaignUpload.single('csvF
               }
               
               if (template.variables && Array.isArray(template.variables)) {
-                template.variables.forEach((varName) => {
+                // FIXED: Error 63028 - Handle duplicate variables correctly
+                const uniqueVariables = [...new Set(template.variables)];
+                console.log(`📋 Original variables: [${template.variables.join(', ')}] (${template.variables.length})`);
+                console.log(`📋 Unique variables: [${uniqueVariables.join(', ')}] (${uniqueVariables.length})`);
+                
+                uniqueVariables.forEach((varName) => {
                   let value = '';
                   
                   // Priority: userMapping -> defaultValue -> csvColumn -> empty

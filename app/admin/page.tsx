@@ -1189,6 +1189,32 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
   ])
   const [loading, setLoading] = useState(false)
 
+  // Función para extraer variables automáticamente del contenido
+  const extractVariablesFromContent = (content: string) => {
+    const regex = /\{\{([^}]+)\}\}/g;
+    const variables: string[] = [];
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+      const varName = match[1].trim();
+      if (varName) {
+        variables.push(varName);
+      }
+    }
+    
+    // Mantener orden exacto, eliminar duplicados solo para mostrar únicos
+    const uniqueVariables = [...new Set(variables)];
+    
+    return {
+      allVariables: variables,           // ["nombre", "empresa", "empresa"] - orden exacto como aparece
+      uniqueVariables: uniqueVariables,  // ["nombre", "empresa"] - únicos para Twilio
+      hasDuplicates: variables.length !== uniqueVariables.length
+    };
+  }
+
+  // Variables detectadas automáticamente
+  const detectedVars = extractVariablesFromContent(formData.content);
+
   // Button management functions
   const addButton = () => {
     if (buttons.length < 3) {
@@ -1216,10 +1242,13 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
     try {
       const token = localStorage.getItem('token')
       
-      // Parse variables and buttons
-      let variables = []
-      if (formData.variables.trim()) {
-        variables = formData.variables.split(',').map(v => v.trim()).filter(v => v)
+      // NUEVO: Usar variables detectadas automáticamente del contenido
+      const variables = detectedVars.uniqueVariables;
+      
+      // Validar variables detectadas
+      if (detectedVars.hasDuplicates) {
+        toast.error('Variables duplicadas detectadas', `Las variables ${detectedVars.allVariables.join(', ')} contienen duplicados. Esto puede causar errores en Twilio.`)
+        return
       }
 
       let buttonsConfig = null
@@ -1349,19 +1378,43 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                     </select>
                   </div>
 
+                  {/* Variables detectadas automáticamente */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Variables (separadas por comas)
+                      Variables Detectadas Automáticamente
                     </label>
-                    <input
-                      type="text"
-                      value={formData.variables}
-                      onChange={(e) => setFormData({...formData, variables: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
-                      placeholder="ej. nombre, fecha, hora, servicio"
-                    />
+                    <div className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-50">
+                      {detectedVars.uniqueVariables.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {detectedVars.uniqueVariables.map((variable, index) => (
+                              <span 
+                                key={index}
+                                className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm font-medium"
+                              >
+                                {`{{${variable}}}`}
+                              </span>
+                            ))}
+                          </div>
+                          {detectedVars.hasDuplicates && (
+                            <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <p className="text-sm text-yellow-800">
+                                ⚠️ <strong>Advertencia:</strong> Variables duplicadas detectadas. Esto puede causar error 63028 en Twilio.
+                              </p>
+                              <p className="text-xs text-yellow-600 mt-1">
+                                Variables encontradas: {detectedVars.allVariables.join(', ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm italic">
+                          Escribe tu mensaje abajo usando {{`{{nombre_variable}}`}} y las variables aparecerán aquí automáticamente
+                        </p>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Estas variables se pueden usar como {`{{1}}`}, {`{{2}}`}, etc. en el mensaje
+                      Las variables se detectan automáticamente del contenido del mensaje y se envían a Twilio con estos nombres exactos.
                     </p>
                   </div>
 
@@ -1488,10 +1541,10 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                 onChange={(e) => setFormData({...formData, content: e.target.value})}
                 rows={6}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
-                placeholder="Hola {`{{1}}`}, tu cita para {`{{2}}`} está confirmada para el {`{{3}}`} a las {`{{4}}`}. ¡Te esperamos!"
+                placeholder="Hola {{nombre}}, tu cita para {{servicio}} está confirmada para el {{fecha}} a las {{hora}}. ¡Te esperamos!"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Usa {`{{1}}`}, {`{{2}}`}, {`{{3}}`}, etc. para las variables. Corresponden al orden de las variables definidas arriba.
+                Usa {{`{{nombre_variable}}`}} en tu mensaje. Las variables se detectarán automáticamente y aparecerán arriba. Los nombres exactos se envían a Twilio.
               </p>
             </Card>
 
@@ -1695,6 +1748,32 @@ function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
   ])
   const [loading, setLoading] = useState(false)
 
+  // Función para extraer variables automáticamente del contenido
+  const extractVariablesFromContent = (content: string) => {
+    const regex = /\{\{([^}]+)\}\}/g;
+    const variables: string[] = [];
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+      const varName = match[1].trim();
+      if (varName) {
+        variables.push(varName);
+      }
+    }
+    
+    // Mantener orden exacto, eliminar duplicados solo para mostrar únicos
+    const uniqueVariables = [...new Set(variables)];
+    
+    return {
+      allVariables: variables,           // ["nombre", "empresa", "empresa"] - orden exacto como aparece
+      uniqueVariables: uniqueVariables,  // ["nombre", "empresa"] - únicos para Twilio
+      hasDuplicates: variables.length !== uniqueVariables.length
+    };
+  }
+
+  // Variables detectadas automáticamente
+  const detectedVars = extractVariablesFromContent(formData.content);
+
   // Load template data when modal opens
   useEffect(() => {
     if (template && isOpen) {
@@ -1759,10 +1838,13 @@ function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
     try {
       const token = localStorage.getItem('token')
       
-      // Parse variables and buttons
-      let variables = []
-      if (formData.variables.trim()) {
-        variables = formData.variables.split(',').map(v => v.trim()).filter(v => v)
+      // NUEVO: Usar variables detectadas automáticamente del contenido
+      const variables = detectedVars.uniqueVariables;
+      
+      // Validar variables detectadas
+      if (detectedVars.hasDuplicates) {
+        toast.error('Variables duplicadas detectadas', `Las variables ${detectedVars.allVariables.join(', ')} contienen duplicados. Esto puede causar errores en Twilio.`)
+        return
       }
 
       let buttonsConfig = null
@@ -1877,19 +1959,43 @@ function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
                     </select>
                   </div>
 
+                  {/* Variables detectadas automáticamente - EditTemplateModal */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Variables (separadas por comas)
+                      Variables Detectadas Automáticamente
                     </label>
-                    <input
-                      type="text"
-                      value={formData.variables}
-                      onChange={(e) => setFormData({...formData, variables: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
-                      placeholder="ej. nombre, fecha, hora, servicio"
-                    />
+                    <div className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-50">
+                      {detectedVars.uniqueVariables.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {detectedVars.uniqueVariables.map((variable, index) => (
+                              <span 
+                                key={index}
+                                className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm font-medium"
+                              >
+                                {`{{${variable}}}`}
+                              </span>
+                            ))}
+                          </div>
+                          {detectedVars.hasDuplicates && (
+                            <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <p className="text-sm text-yellow-800">
+                                ⚠️ <strong>Advertencia:</strong> Variables duplicadas detectadas. Esto puede causar error 63028 en Twilio.
+                              </p>
+                              <p className="text-xs text-yellow-600 mt-1">
+                                Variables encontradas: {detectedVars.allVariables.join(', ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm italic">
+                          Escribe tu mensaje abajo usando {{`{{nombre_variable}}`}} y las variables aparecerán aquí automáticamente
+                        </p>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Estas variables se pueden usar como {`{{1}}`}, {`{{2}}`}, etc. en el mensaje
+                      Las variables se detectan automáticamente del contenido del mensaje y se envían a Twilio con estos nombres exactos.
                     </p>
                   </div>
 
@@ -2020,10 +2126,10 @@ function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
                 onChange={(e) => setFormData({...formData, content: e.target.value})}
                 rows={6}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
-                placeholder="Hola {`{{1}}`}, tu cita para {`{{2}}`} está confirmada para el {`{{3}}`} a las {`{{4}}`}. ¡Te esperamos!"
+                placeholder="Hola {{nombre}}, tu cita para {{servicio}} está confirmada para el {{fecha}} a las {{hora}}. ¡Te esperamos!"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Usa {`{{1}}`}, {`{{2}}`}, {`{{3}}`}, etc. para las variables. Corresponden al orden de las variables definidas arriba.
+                Usa {{`{{nombre_variable}}`}} en tu mensaje. Las variables se detectarán automáticamente y aparecerán arriba. Los nombres exactos se envían a Twilio.
               </p>
             </Card>
 

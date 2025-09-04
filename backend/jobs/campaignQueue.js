@@ -194,7 +194,12 @@ campaignQueue.process('send-campaign', async (job) => {
           if (template.variables && template.variables.length > 0) {
             const templateVariables = {};
             
-            template.variables.forEach((varName, varIndex) => {
+            // FIXED: Error 63028 - Handle duplicate variables correctly
+            const uniqueVariables = [...new Set(template.variables)];
+            console.log(`📋 Original variables: [${template.variables.join(', ')}] (${template.variables.length})`);
+            console.log(`📋 Unique variables: [${uniqueVariables.join(', ')}] (${uniqueVariables.length})`);
+            
+            uniqueVariables.forEach((varName, varIndex) => {
               let value = '';
               
               // Use same priority logic as immediate processing
