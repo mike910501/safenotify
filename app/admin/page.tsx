@@ -1409,7 +1409,7 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                         </div>
                       ) : (
                         <p className="text-gray-500 text-sm italic">
-                          Escribe tu mensaje abajo usando {{`{{nombre_variable}}`}} y las variables aparecerán aquí automáticamente
+                          Escribe tu mensaje abajo usando variables como {`{{nombre}}`} y aparecerán aquí automáticamente
                         </p>
                       )}
                     </div>
@@ -1544,7 +1544,7 @@ function CreateTemplateModal({ isOpen, onClose, onSuccess, toast }: {
                 placeholder="Hola {{nombre}}, tu cita para {{servicio}} está confirmada para el {{fecha}} a las {{hora}}. ¡Te esperamos!"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Usa {{`{{nombre_variable}}`}} en tu mensaje. Las variables se detectarán automáticamente y aparecerán arriba. Los nombres exactos se envían a Twilio.
+                Usa variables como {`{{nombre}}`} en tu mensaje. Las variables se detectarán automáticamente y aparecerán arriba. Los nombres exactos se envían a Twilio.
               </p>
             </Card>
 
@@ -1990,7 +1990,7 @@ function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
                         </div>
                       ) : (
                         <p className="text-gray-500 text-sm italic">
-                          Escribe tu mensaje abajo usando {{`{{nombre_variable}}`}} y las variables aparecerán aquí automáticamente
+                          Escribe tu mensaje abajo usando variables como {`{{nombre}}`} y aparecerán aquí automáticamente
                         </p>
                       )}
                     </div>
@@ -2129,7 +2129,7 @@ function EditTemplateModal({ isOpen, onClose, template, onSuccess, toast }: {
                 placeholder="Hola {{nombre}}, tu cita para {{servicio}} está confirmada para el {{fecha}} a las {{hora}}. ¡Te esperamos!"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Usa {{`{{nombre_variable}}`}} en tu mensaje. Las variables se detectarán automáticamente y aparecerán arriba. Los nombres exactos se envían a Twilio.
+                Usa variables como {`{{nombre}}`} en tu mensaje. Las variables se detectarán automáticamente y aparecerán arriba. Los nombres exactos se envían a Twilio.
               </p>
             </Card>
 
