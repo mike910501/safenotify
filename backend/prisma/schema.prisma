@@ -608,3 +608,40 @@ model AISettings {
   
   @@map("ai_settings")
 }
+
+// GPT Token Usage Tracking - NEW
+model GPTUsage {
+  id                String   @id @default(cuid())
+  
+  // Request details
+  leadId            String?
+  phone             String
+  conversationId    String?
+  
+  // Model and usage
+  model             String   // gpt-4o, gpt-3.5-turbo, gpt-4o-mini
+  tokensUsed        Int
+  estimatedCost     Float
+  
+  // Context
+  intent            String?  // greeting, demo_request, roi_inquiry, etc
+  leadScore         Int?     // Lead qualification score at time of request
+  responseType      String   // conversation, sentiment_analysis, custom_prompt
+  
+  // Performance
+  responseTime      Float?   // API response time in seconds
+  success           Boolean  @default(true)
+  errorMessage      String?
+  
+  // Business metrics
+  leadValueBefore   Int?     // Lead score before interaction
+  leadValueAfter    Int?     // Lead score after interaction
+  conversionEvent   String?  // demo_scheduled, email_captured, etc
+  
+  createdAt         DateTime @default(now())
+  
+  @@map("gpt_usage")
+  @@index([phone])
+  @@index([model])
+  @@index([createdAt])
+}

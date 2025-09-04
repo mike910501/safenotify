@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const fallbackService = require('./fallbackResponseService');
 const twilioService = require('../config/twilio');
-const { selectOptimalModel, getModelConfig, trackModelUsage } = require('./ai/modelSelector');
+const { selectOptimalModel, getModelConfig, trackModelUsage, trackGPTUsageEnhanced } = require('./ai/modelSelector');
 const { SAFENOTIFY_KNOWLEDGE_BASE, getPricingInfo, getCaseStudyForSector } = require('./knowledge/sofiaKnowledgeBase');
 
 /**
@@ -130,8 +130,23 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
 
     const response = completion.choices[0].message.content.trim();
     
-    // Track model usage for cost optimization
-    trackModelUsage(selectedModel, completion.usage.total_tokens);
+    // Enhanced tracking with database persistence and notifications
+    const trackingData = {
+      phone: businessContext?.phone || 'unknown',
+      leadId: businessContext?.leadId,
+      conversationId: businessContext?.conversationId,
+      model: selectedModel,
+      tokensUsed: completion.usage.total_tokens,
+      intent: currentIntent,
+      leadScore: businessContext?.qualificationScore || 0,
+      responseType: 'custom_prompt',
+      success: true,
+      leadValueBefore: businessContext?.scoreBefore,
+      leadValueAfter: businessContext?.scoreAfter,
+      conversionEvent: businessContext?.conversionEvent
+    };
+    
+    await trackGPTUsageEnhanced(trackingData);
     
     console.log('✅ Custom prompt response generated:', response.substring(0, 60) + '...');
     
@@ -206,8 +221,23 @@ async function generateNaturalResponse(conversationHistory, leadContext, current
 
     const response = completion.choices[0].message.content.trim();
     
-    // Track model usage for cost optimization
-    trackModelUsage(selectedModel, completion.usage.total_tokens);
+    // Enhanced tracking with database persistence and notifications
+    const trackingData = {
+      phone: leadContext?.phone || 'unknown',
+      leadId: leadContext?.leadId,
+      conversationId: leadContext?.conversationId,
+      model: selectedModel,
+      tokensUsed: completion.usage.total_tokens,
+      intent: currentIntent,
+      leadScore: leadContext?.qualificationScore || 0,
+      responseType: 'conversation',
+      success: true,
+      leadValueBefore: leadContext?.scoreBefore,
+      leadValueAfter: leadContext?.scoreAfter,
+      conversionEvent: leadContext?.conversionEvent
+    };
+    
+    await trackGPTUsageEnhanced(trackingData);
     
     console.log('✅ OpenAI response generated:', response.substring(0, 60) + '...');
     
@@ -220,6 +250,22 @@ async function generateNaturalResponse(conversationHistory, leadContext, current
 
   } catch (error) {
     console.error('❌ OpenAI error:', error.message);
+    
+    // Track error for monitoring
+    const errorTrackingData = {
+      phone: leadContext?.phone || 'error',
+      leadId: leadContext?.leadId,
+      model: selectedModel || 'unknown',
+      tokensUsed: 0,
+      intent: currentIntent,
+      leadScore: leadContext?.qualificationScore || 0,
+      responseType: 'conversation',
+      success: false,
+      errorMessage: error.message
+    };
+    
+    await trackGPTUsageEnhanced(errorTrackingData);
+    
     console.log('🔄 Activating interactive fallback system...');
     
     // Activate interactive fallback system
@@ -340,8 +386,18 @@ async function analyzeConversationSentiment(conversationHistory) {
 
     const analysis = JSON.parse(completion.choices[0].message.content);
     
-    // Track model usage
-    trackModelUsage(selectedModel, completion.usage.total_tokens);
+    // Enhanced tracking for sentiment analysis
+    const trackingData = {
+      phone: 'sentiment_analysis',
+      model: selectedModel,
+      tokensUsed: completion.usage.total_tokens,
+      intent: 'sentiment_analysis',
+      leadScore: 0,
+      responseType: 'sentiment_analysis',
+      success: true
+    };
+    
+    await trackGPTUsageEnhanced(trackingData);
     
     return analysis;
 

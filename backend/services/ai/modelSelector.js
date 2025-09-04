@@ -84,9 +84,10 @@ function getModelConfig(model, purpose = 'conversation') {
 }
 
 /**
- * Track model usage for cost optimization
+ * Track model usage for cost optimization (LEGACY)
  * @param {String} model - Model used
  * @param {Number} tokens - Tokens consumed
+ * @deprecated Use trackGPTUsage from gptUsageTracker instead
  */
 function trackModelUsage(model, tokens) {
   const costs = {
@@ -106,9 +107,25 @@ function trackModelUsage(model, tokens) {
   };
 }
 
+/**
+ * Enhanced tracking with database persistence and notifications
+ * @param {Object} usageData - Comprehensive usage data
+ * @returns {Object} - Usage tracking result
+ */
+async function trackGPTUsageEnhanced(usageData) {
+  try {
+    const { trackGPTUsage } = require('./gptUsageTracker');
+    return await trackGPTUsage(usageData);
+  } catch (error) {
+    console.error('❌ Enhanced tracking failed, falling back to basic:', error);
+    return trackModelUsage(usageData.model, usageData.tokensUsed);
+  }
+}
+
 module.exports = {
   MODELS,
   selectOptimalModel,
   getModelConfig,
-  trackModelUsage
+  trackModelUsage,
+  trackGPTUsageEnhanced
 };
