@@ -1,6 +1,8 @@
 const OpenAI = require('openai');
 const fallbackService = require('./fallbackResponseService');
 const twilioService = require('../config/twilio');
+const { selectOptimalModel, getModelConfig, trackModelUsage } = require('./ai/modelSelector');
+const { SAFENOTIFY_KNOWLEDGE_BASE, getPricingInfo, getCaseStudyForSector } = require('./knowledge/sofiaKnowledgeBase');
 
 /**
  * OpenAI Service - Real AI responses for Sofia
@@ -10,84 +12,10 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Sofia's comprehensive knowledge base
-const SAFENOTIFY_KNOWLEDGE_BASE = {
-  company: {
-    name: "SafeNotify",
-    mission: "Revolucionar la comunicación automatizada para TODOS los negocios con compliance total",
-    location: "Colombia",
-    focus: "Todos los sectores - Cualquier negocio que maneje citas o recordatorios"
-  },
-  
-  product: {
-    description: "Sistema de notificaciones WhatsApp Business para CUALQUIER negocio con eliminación automática de datos",
-    keyFeatures: [
-      "Recordatorios automáticos de citas/servicios",
-      "Confirmaciones WhatsApp",
-      "Eliminación automática de datos (auto-delete)",
-      "Compliance total Habeas Data",
-      "Reducción no-shows hasta 80%",
-      "Integración con agendas/sistemas",
-      "Templates personalizables por industria",
-      "Analytics y reportes detallados",
-      "Soporte especializado por sector"
-    ],
-    pricing: "Desde $149K/mes (Plan Básico 500 msgs), $299K (2000 msgs), $599K (5000 msgs)",
-    setup: "Implementación en 5 minutos con soporte GRATIS incluido"
-  },
-  
-  problems_solved: {
-    legal: "Elimina riesgo multas SIC hasta $2.000 millones por uso WhatsApp personal (TODOS los negocios)",
-    operational: "Reduce no-shows hasta 80%, mejora comunicación negocio-cliente",
-    efficiency: "Automatiza recordatorios, libera tiempo del personal",
-    compliance: "100% cumplimiento Habeas Data, privacidad por diseño",
-    revenue: "Recupera ingresos perdidos por citas/servicios cancelados"
-  },
-  
-  target_clients: {
-    premium: "Clínicas especializadas, salones premium, restaurants exclusivos (100+ citas/mes)",
-    standard: "Talleres, veterinarias, gimnasios, centros educativos (50-100 citas/mes)",
-    basic: "Pequeños negocios, servicios profesionales (hasta 50 citas/mes)",
-    universal: "CUALQUIER negocio que maneje citas, reservas o recordatorios"
-  },
-  
-  competitors: {
-    whatsapp_personal: "Riesgo legal alto, sin funcionalidades profesionales",
-    generic_crm: "No especializado por industria, sin auto-delete",
-    sms_systems: "Baja efectividad, no WhatsApp nativo",
-    apps_genericas: "Sin compliance específico Colombia, soporte limitado"
-  },
-  
-  case_studies: {
-    salon_belleza_medellin: {
-      business: "Salón de belleza",
-      before: "35% no-shows, WhatsApp personal, 200 citas/mes",
-      after: "12% no-shows, compliance total, $8M ahorro mensual",
-      timeframe: "1 mes implementación"
-    },
-    restaurant_bogota: {
-      business: "Restaurante", 
-      before: "40% mesas vacías por no-shows",
-      after: "15% no-shows, ocupación 85%",
-      roi: "ROI 300% primer mes"
-    },
-    taller_mecanico_cali: {
-      business: "Taller mecánico",
-      before: "Llamadas manuales, clientes olvidan recoger",
-      after: "Notificaciones automáticas, 95% satisfacción",
-      roi: "ROI 250% primer mes"
-    }
-  },
-  
-  objections_handling: {
-    price: "ROI positivo desde mes 1 - ahorro no-shows supera costo. Plan básico $149K recupera más de $500K mes",
-    complexity: "Setup 5 minutos, soporte GRATIS completo incluido",
-    existing_system: "Integración fácil con CUALQUIER agenda, migración sin interrupciones",
-    client_adoption: "95% colombianos usan WhatsApp diario, adopción inmediata",
-    legal_concerns: "Diseñado específicamente para compliance colombiano - todos los sectores",
-    no_time: "Precisamente para eso existe - automatiza TODO, libera tu tiempo",
-    small_business: "Plan básico perfecto para pequeños negocios - desde $149K/mes"
-  }
+// Sofia's personality and conversation style - REMOVED DUPLICATE KNOWLEDGE BASE
+const SOFIA_PERSONALITY = {
+  // This data is now imported from sofiaKnowledgeBase.js
+  dummy: "placeholder"
 };
 
 // Sofia's personality and conversation style
@@ -194,16 +122,16 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
       }
     });
 
+    const selectedModel = selectOptimalModel(businessContext, currentIntent);
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: messages,
-      max_tokens: 250, // Increased for ~20 lines
-      temperature: 0.7,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1
+      ...getModelConfig(selectedModel, 'conversation'),
+      messages: messages
     });
 
     const response = completion.choices[0].message.content.trim();
+    
+    // Track model usage for cost optimization
+    trackModelUsage(selectedModel, completion.usage.total_tokens);
     
     console.log('✅ Custom prompt response generated:', response.substring(0, 60) + '...');
     
@@ -211,6 +139,7 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
       success: true,
       message: response,
       tokens_used: completion.usage.total_tokens,
+      model_used: selectedModel,
       customPrompt: true
     };
 
@@ -269,23 +198,24 @@ async function generateNaturalResponse(conversationHistory, leadContext, current
 
     console.log('📝 OpenAI prompt context built, generating response...');
 
+    const selectedModel = selectOptimalModel(leadContext, currentIntent);
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: messages,
-      max_tokens: 250, // Increased for ~20 lines
-      temperature: 0.7,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1
+      ...getModelConfig(selectedModel, 'conversation'),
+      messages: messages
     });
 
     const response = completion.choices[0].message.content.trim();
+    
+    // Track model usage for cost optimization
+    trackModelUsage(selectedModel, completion.usage.total_tokens);
     
     console.log('✅ OpenAI response generated:', response.substring(0, 60) + '...');
     
     return {
       success: true,
       message: response,
-      tokens_used: completion.usage.total_tokens
+      tokens_used: completion.usage.total_tokens,
+      model_used: selectedModel
     };
 
   } catch (error) {
@@ -322,21 +252,21 @@ SAFENOTIFY INFO RELEVANTE:\n`;
 
   // Add relevant SafeNotify info based on intent and lead profile
   if (currentIntent === 'compliance_concern' || leadContext.whatsappUsage === 'personal') {
-    context += `- RIESGO LEGAL: WhatsApp personal puede generar multas SIC hasta $2.000 millones
-- SOLUCIÓN: SafeNotify elimina riesgo con compliance total Habeas Data
-- CASOS REALES: SIC ya sancionó clínicas por mal uso datos\n`;
+    context += `- ${SAFENOTIFY_KNOWLEDGE_BASE.compliance.sic}
+- SOLUCIÓN: ${SAFENOTIFY_KNOWLEDGE_BASE.compliance.habeasData}
+- ${SAFENOTIFY_KNOWLEDGE_BASE.compliance.autoDelete}\n`;
   }
 
   if (currentIntent === 'roi_inquiry' || leadContext.monthlyPatients > 50) {
     const estimatedSavings = calculateEstimatedSavings(leadContext.monthlyPatients, leadContext.specialty);
-    context += `- ROI ESTIMADO: $${estimatedSavings}M ahorro mensual para esta clínica
-- REDUCCIÓN NO-SHOWS: Hasta 70% comprobado
-- CASO SIMILAR: ${getSimilarCaseStudy(leadContext.specialty)}\n`;
+    context += `- ROI ESTIMADO: $${estimatedSavings}M ahorro mensual para este negocio
+- REDUCCIÓN NO-SHOWS: Hasta 80% comprobado
+- CASO SIMILAR: ${getCaseStudyForSector(leadContext.specialty || leadContext.businessType)}\n`;
   }
 
   if (currentIntent === 'demo_request' || leadContext.qualificationScore > 40) {
-    context += `- DEMO PERSONALIZADA: Configurada específicamente para ${leadContext.specialty || 'tu sector'}
-- SETUP: 5 minutos implementación completa
+    context += `- DEMO PERSONALIZADA: Configurada específicamente para ${leadContext.specialty || leadContext.businessType || 'tu sector'}
+- SETUP: ${SAFENOTIFY_KNOWLEDGE_BASE.product.setup}
 - SOPORTE: Equipo especializado incluido\n`;
   }
 
@@ -367,15 +297,7 @@ function calculateEstimatedSavings(monthlyPatients = 100, specialty = 'general')
   return savings;
 }
 
-/**
- * Get similar case study for credibility
- */
-function getSimilarCaseStudy(specialty) {
-  if (specialty?.includes('dermatología') || specialty?.includes('estética')) {
-    return "Dr. Martínez (dermatólogo) redujo no-shows 70% en 2 meses";
-  }
-  return "Clínicas similares ahorran $8-15M mensuales";
-}
+// Case study function removed - now using getCaseStudyForSector from sofiaKnowledgeBase.js
 
 /**
  * Determine conversation objective based on context
@@ -401,8 +323,9 @@ async function analyzeConversationSentiment(conversationHistory) {
   try {
     const lastMessages = conversationHistory.slice(-4).map(m => m.content).join('\n');
     
+    const selectedModel = selectOptimalModel({ qualificationScore: 0 }, 'sentiment_analysis');
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      ...getModelConfig(selectedModel, 'analysis'),
       messages: [
         {
           role: "system",
@@ -412,12 +335,14 @@ async function analyzeConversationSentiment(conversationHistory) {
           role: "user",
           content: lastMessages
         }
-      ],
-      max_tokens: 100,
-      temperature: 0.1
+      ]
     });
 
     const analysis = JSON.parse(completion.choices[0].message.content);
+    
+    // Track model usage
+    trackModelUsage(selectedModel, completion.usage.total_tokens);
+    
     return analysis;
 
   } catch (error) {
