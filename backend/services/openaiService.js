@@ -335,9 +335,9 @@ SAFENOTIFY INFO RELEVANTE:\n`;
   }
 
   if (currentIntent === 'demo_request' || leadContext.qualificationScore > 40) {
-    context += `- DEMO PERSONALIZADA: Configurada específicamente para ${leadContext.specialty || 'medicina'}
+    context += `- DEMO PERSONALIZADA: Configurada específicamente para ${leadContext.specialty || 'tu sector'}
 - SETUP: 5 minutos implementación completa
-- SOPORTE: Equipo especializado médico incluido\n`;
+- SOPORTE: Equipo especializado incluido\n`;
   }
 
   context += `\nOBJETIVO: ${getConversationObjective(leadContext, currentIntent)}`;
@@ -406,7 +406,7 @@ async function analyzeConversationSentiment(conversationHistory) {
       messages: [
         {
           role: "system",
-          content: "Analiza el sentiment y engagement del prospect en esta conversación médica. Responde SOLO con un JSON: {\"sentiment\": \"positive/neutral/negative\", \"engagement\": \"high/medium/low\", \"buying_intent\": \"high/medium/low\", \"objections\": [\"list\"]}"
+          content: "Analiza el sentiment y engagement del prospect en esta conversación de negocios. Responde SOLO con un JSON: {\"sentiment\": \"positive/neutral/negative\", \"engagement\": \"high/medium/low\", \"buying_intent\": \"high/medium/low\", \"objections\": [\"list\"]}"
         },
         {
           role: "user",

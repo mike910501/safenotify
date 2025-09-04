@@ -7,7 +7,7 @@ const twilioService = require('../config/twilio');
 const prisma = new PrismaClient();
 
 /**
- * Sofia AI Service - Especialista en vender SafeNotify a clínicas médicas
+ * Sofia AI Service - Especialista en vender SafeNotify a cualquier tipo de negocio
  * Personalidad: Consultiva, educativa, enfocada en compliance y ROI
  */
 
@@ -37,11 +37,11 @@ const CONVERSATION_STATES = {
   HANDOFF_SALES: 'handoff_sales'
 };
 
-// Qualifying questions específicas médicas
+// Qualifying questions adaptables por sector
 const QUALIFYING_QUESTIONS = {
-  PATIENT_VOLUME: {
-    question: "¿Aproximadamente cuántos pacientes atienden al mes en su clínica?",
-    followUp: "Perfecto, con ese volumen de pacientes SafeNotify puede generar un impacto significativo.",
+  VOLUME: {
+    question: "¿Aproximadamente cuántos clientes/usuarios atienden al mes?",
+    followUp: "Perfecto, con ese volumen SafeNotify puede generar un impacto significativo.",
     scoring: {
       "200+": 30,
       "100-200": 20,
@@ -50,41 +50,41 @@ const QUALIFYING_QUESTIONS = {
     }
   },
   CURRENT_SYSTEM: {
-    question: "¿Cómo manejan actualmente los recordatorios de citas? ¿Usan WhatsApp personal?",
+    question: "¿Cómo manejan actualmente la comunicación con clientes? ¿Usan WhatsApp personal?",
     followUp: "Entiendo. Ese es exactamente el tipo de situación donde SafeNotify marca la diferencia.",
     riskTriggers: ["whatsapp personal", "celular personal", "número personal"]
   },
-  SPECIALTY: {
-    question: "¿Cuáles son las especialidades médicas que manejan?",
-    premiumSpecialties: ["dermatología", "cirugía estética", "ortopedia", "cardiología", "neurología"],
-    basicSpecialties: ["medicina general", "consulta general"]
+  BUSINESS_TYPE: {
+    question: "¿Cuál es el sector o tipo de negocio de su empresa?",
+    premiumSectors: ["medicina", "dermatología", "cirugía estética", "educación", "restaurantes"],
+    basicSectors: ["comercio general", "servicios básicos"]
   },
   COMPLIANCE_KNOWLEDGE: {
-    question: "¿Conocen las regulaciones actuales de Habeas Data para clínicas en Colombia?",
-    followUp: "Muchas clínicas no saben que usar WhatsApp personal puede generar multas hasta $2.000 millones."
+    question: "¿Conocen las regulaciones actuales de Habeas Data para empresas en Colombia?",
+    followUp: "Muchas empresas no saben que usar WhatsApp personal puede generar multas hasta $2.000 millones."
   },
-  NO_SHOW_RATE: {
-    question: "¿Cuál dirían que es su mayor problema: no-shows, confirmaciones tardías, o comunicación con pacientes?",
+  PAIN_POINTS: {
+    question: "¿Cuál dirían que es su mayor problema: falta de clientes, confirmaciones tardías, o comunicación con usuarios?",
     painPoints: ["no-shows", "confirmaciones", "comunicación", "recordatorios"]
   }
 };
 
-// Medical specialties scoring
-const MEDICAL_SPECIALTY_SCORING = {
+// Business sector scoring
+const BUSINESS_SECTOR_SCORING = {
   premium: {
-    specialties: ["dermatología", "cirugía estética", "ortopedia", "cardiología", "neurología", "ginecología", "urología", "oncología"],
+    sectors: ["dermatología", "cirugía estética", "medicina", "educación", "capacitación", "restaurantes", "odontología"],
     multiplier: 2.0,
-    reasoning: "Especialidades con citas de alto valor y pacientes que valoran la comunicación profesional"
+    reasoning: "Sectores con alto valor por cliente y necesidad de comunicación profesional"
   },
   standard: {
-    specialties: ["medicina interna", "pediatría", "psiquiatría", "endocrinología", "reumatología"],
+    sectors: ["servicios profesionales", "comercio", "consultoría", "tecnología", "inmobiliaria"],
     multiplier: 1.5,
-    reasoning: "Especialidades con seguimiento regular de pacientes"
+    reasoning: "Sectores con seguimiento regular de clientes"
   },
   basic: {
-    specialties: ["medicina general", "consulta general", "medicina familiar"],
+    sectors: ["comercio general", "servicios básicos", "ventas"],
     multiplier: 1.0,
-    reasoning: "Especialidades básicas con menor valor por cita"
+    reasoning: "Sectores básicos con menor valor por transacción"
   }
 };
 
@@ -582,18 +582,19 @@ async function updateLeadScore(lead, messageText, intent, sentiment) {
   if (text.includes('demo') || text.includes('ver')) newScore += 10;
   if (text.includes('urgente') || text.includes('pronto')) newScore += 5;
 
-  // Professional indicators
-  if (text.includes('doctor') || text.includes('dr.') || text.includes('clínica')) newScore += 5;
-  if (text.includes('pacientes') && text.match(/\d+/)) {
-    const patientCount = parseInt(text.match(/\d+/)[0]);
-    if (patientCount >= 200) newScore += 15;
-    else if (patientCount >= 100) newScore += 10;
-    else if (patientCount >= 50) newScore += 5;
+  // Professional indicators (generic)
+  if (text.includes('doctor') || text.includes('dr.') || text.includes('clínica') || 
+      text.includes('empresa') || text.includes('negocio') || text.includes('director')) newScore += 5;
+  if ((text.includes('clientes') || text.includes('usuarios') || text.includes('pacientes')) && text.match(/\d+/)) {
+    const clientCount = parseInt(text.match(/\d+/)[0]);
+    if (clientCount >= 200) newScore += 15;
+    else if (clientCount >= 100) newScore += 10;
+    else if (clientCount >= 50) newScore += 5;
   }
 
-  // Specialty bonuses
-  const premiumSpecialties = ['dermatología', 'cirugía estética', 'ortopedia', 'cardiología'];
-  if (premiumSpecialties.some(s => text.includes(s))) newScore += 10;
+  // Business sector bonuses
+  const premiumSectors = ['dermatología', 'cirugía estética', 'educación', 'capacitación', 'restaurante'];
+  if (premiumSectors.some(s => text.includes(s))) newScore += 10;
 
   // Risk awareness (WhatsApp personal usage)
   if (text.includes('whatsapp personal') || text.includes('celular personal')) newScore += 8;
@@ -694,12 +695,12 @@ async function handleQualificationBasic(messageText, intent, lead) {
     const specialty = extractSpecialty(text);
     if (specialty) {
       leadUpdates.specialty = specialty;
-      newScore += calculateSpecialtyScore(specialty);
+      newScore += calculateSectorScore(specialty);
       
-      message = `${specialty}, excelente especialidad. ${QUALIFYING_QUESTIONS.PATIENT_VOLUME.question}`;
+      message = `${specialty}, excelente sector. ${QUALIFYING_QUESTIONS.VOLUME.question}`;
       nextStep = CONVERSATION_STATES.QUALIFICATION_BASIC; // Stay in qualification
     } else {
-      message = "¿Podrías contarme un poco más sobre tu especialidad médica y cuántos pacientes atienden mensualmente?";
+      message = "¿Podrías contarme un poco más sobre tu tipo de negocio y cuántos clientes atienden mensualmente?";
     }
   }
   // Extract current system info
@@ -1041,12 +1042,12 @@ function calculatePatientVolumeScore(volume) {
   return 5;
 }
 
-function calculateSpecialtyScore(specialty) {
-  const premium = MEDICAL_SPECIALTY_SCORING.premium.specialties;
-  const standard = MEDICAL_SPECIALTY_SCORING.standard.specialties;
+function calculateSectorScore(sector) {
+  const premium = BUSINESS_SECTOR_SCORING.premium.sectors;
+  const standard = BUSINESS_SECTOR_SCORING.standard.sectors;
   
-  if (premium.some(s => specialty.includes(s))) return 25;
-  if (standard.some(s => specialty.includes(s))) return 15;
+  if (premium.some(s => sector.includes(s))) return 25;
+  if (standard.some(s => sector.includes(s))) return 15;
   return 5;
 }
 

@@ -28,6 +28,11 @@ try {
   console.log('⚠️ WebSocket module skipped:', error.message);
   CampaignProgressTracker = null;
 }
+
+// Import Daily Report Cron Job
+const { dailyReportJob, triggerDailyReportNow } = require('./jobs/dailyReportCron');
+console.log('📧 Daily report cron job loaded and scheduled');
+
 const http = require('http');
 
 // Database connection
@@ -262,6 +267,26 @@ app.get('/api/templates', (req, res) => {
     success: true,
     templates: templates.filter(t => t.sid)
   });
+});
+
+// Manual trigger for daily report (for testing)
+app.post('/api/test-daily-report', async (req, res) => {
+  try {
+    console.log('🔥 Manual trigger: Sending daily report now...');
+    const result = await triggerDailyReportNow();
+    res.json({
+      success: true,
+      message: 'Daily report sent successfully',
+      result
+    });
+  } catch (error) {
+    console.error('❌ Manual daily report failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send daily report',
+      error: error.message
+    });
+  }
 });
 
 // Test message endpoint
@@ -2503,6 +2528,7 @@ server.listen(PORT, async () => {
   console.log(`📊 Progress Tracking: http://localhost:${PORT}/api/progress`);
   console.log(`📅 Scheduled Campaigns: http://localhost:${PORT}/api/scheduled-campaigns`);
   console.log(`📡 WebSocket Server: Initialized for real-time updates`);
+  console.log(`📧 Daily Reports: Scheduled for 5:00 PM Colombia time`);
   
   // Initialize scheduler service
   try {
