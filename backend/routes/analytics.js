@@ -382,4 +382,161 @@ router.get('/export', verifyToken, async (req, res) => {
   }
 });
 
+// 🚀 CRM Analytics Endpoint - Phase 4
+router.get('/crm', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { timeRange = '7d' } = req.query;
+    
+    // Check if user has CRM enabled
+    if (!req.user.crmEnabled) {
+      return res.status(403).json({
+        success: false,
+        error: 'CRM not enabled for this user'
+      });
+    }
+
+    let dateFilter = {};
+    const now = new Date();
+    
+    switch (timeRange) {
+      case '24h':
+        dateFilter.gte = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '7d':
+        dateFilter.gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        dateFilter.gte = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90d':
+        dateFilter.gte = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        dateFilter.gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // 1. Overview Metrics
+    const totalConversations = await prisma.cRMConversation.count({
+      where: { 
+        userId,
+        createdAt: dateFilter
+      }
+    });
+
+    const activeConversations = await prisma.cRMConversation.count({
+      where: { 
+        userId,
+        status: 'ACTIVE'
+      }
+    });
+
+    const totalAgents = await prisma.userAIAgent.count({
+      where: { 
+        userId,
+        isActive: true
+      }
+    });
+
+    // Calculate average response time (mock for now)
+    const avgResponseTime = 12.5;
+
+    // Calculate satisfaction score (mock for now) 
+    const satisfactionScore = 4.2;
+
+    // Calculate conversion rate (mock for now)
+    const conversionRate = 34.7;
+
+    // 2. Agent Performance
+    const agentStats = await prisma.userAIAgent.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        isActive: true,
+        _count: {
+          select: {
+            conversations: {
+              where: {
+                createdAt: dateFilter
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const agents = agentStats.map(agent => ({
+      id: agent.id,
+      name: agent.name,
+      role: agent.role,
+      totalConversations: agent._count.conversations,
+      avgResponseTime: Math.random() * 20 + 5, // Mock data
+      satisfactionRating: (Math.random() * 1.5 + 3.5), // Mock data 3.5-5.0
+      isActive: agent.isActive
+    }));
+
+    // 3. Trends Data (mock for development)
+    const generateTrendData = (days, baseValue, variance) => {
+      const data = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const value = Math.max(0, baseValue + (Math.random() - 0.5) * variance);
+        data.push({
+          date: date.toISOString().split('T')[0],
+          count: Math.round(value)
+        });
+      }
+      return data;
+    };
+
+    const daysCount = timeRange === '24h' ? 1 : 
+                    timeRange === '7d' ? 7 :
+                    timeRange === '30d' ? 30 : 90;
+
+    const trends = {
+      conversations: generateTrendData(daysCount, 20, 10),
+      responseTime: generateTrendData(daysCount, 15, 6),
+      satisfaction: generateTrendData(daysCount, 4.2, 0.8).map(item => ({
+        date: item.date,
+        score: Math.min(5, Math.max(3, item.count))
+      }))
+    };
+
+    // 4. Top Performers
+    const topPerformers = [
+      { agentName: 'Sales Assistant Pro', metric: 'Response Time', value: '8.2s', change: -12.5 },
+      { agentName: 'Support Specialist', metric: 'Satisfaction', value: '4.1★', change: 8.3 },
+      { agentName: 'Sales Assistant Pro', metric: 'Conversations', value: totalConversations > 0 ? Math.floor(totalConversations * 0.6) : 45, change: 23.1 }
+    ];
+
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalConversations,
+          activeConversations, 
+          totalAgents,
+          avgResponseTime,
+          satisfactionScore,
+          conversionRate
+        },
+        trends,
+        agents,
+        topPerformers,
+        timeRange,
+        generatedAt: now.toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('CRM Analytics Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error loading CRM analytics'
+    });
+  }
+});
+
 module.exports = router;

@@ -1,0 +1,757 @@
+// ============================================================================
+// 🚀 SCHEMA PRINCIPAL ACTUALIZADO - SafeNotify con CRM para Clientes
+// Versión: 2.0 - Incluye sistema CRM completo para Users
+// NO MODIFICAR LAS TABLAS EXISTENTES - Solo extensiones
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// TABLAS EXISTENTES (NO MODIFICADAS - SafeNotify interno)
+// ============================================================================
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  password       String
+  name           String?
+  role           String          @default("user")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  planType       String          @default("free")
+  planExpiry     DateTime?
+  messagesUsed   Int             @default(0)
+  messagesLimit  Int             @default(10)
+  
+  // 🚀 NUEVOS CAMPOS CRM (EXTENSIÓN)
+  crmEnabled        Boolean   @default(false)
+  crmPlan           String    @default("basic")
+  maxAgents         Int       @default(1)
+  maxWhatsAppNumbers Int      @default(1)
+  
+  // Relaciones existentes
+  apiKeys        ApiKey[]
+  campaigns      Campaign[]
+  passwordResets PasswordReset[]
+  payments       Payment[]
+  templates      Template[]
+  clientFunnels  ClientFunnel[]
+  
+  // 🚀 NUEVAS RELACIONES CRM
+  whatsappNumbers   UserWhatsAppNumber[]
+  aiAgents          UserAIAgent[]
+  customerLeads     CustomerLead[]
+  crmConversations  CRMConversation[]
+  crmTags           CRMTag[]
+  crmMetrics        CRMMetrics[]
+
+  @@map("users")
+}
+
+model Campaign {
+  id            String       @id @default(cuid())
+  name          String
+  templateId    String?
+  status        String       @default("draft")
+  totalContacts Int          @default(0)
+  sentCount     Int          @default(0)
+  errorCount    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  sentAt        DateTime?
+  userId        String
+  template      Template?    @relation(fields: [templateId], references: [id])
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      MessageLog[]
+
+  @@map("campaigns")
+}
+
+model Template {
+  id                    String     @id @default(cuid())
+  name                  String
+  content               String
+  category              String     @default("general")
+  variables             String[]
+  status                String     @default("ai_pending")
+  isPublic              Boolean    @default(false)
+  aiApproved            Boolean    @default(false)
+  aiScore               Int?
+  aiReasons             String[]
+  aiSuggestions         String[]
+  twilioTemplateId      String?
+  twilioSid             String?
+  adminReviewedBy       String?
+  adminReviewedAt       DateTime?
+  adminNotes            String?
+  usageCount            Int        @default(0)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  userId                String?
+  businessCategory      String     @default("UTILITY")
+  footerText            String?
+  headerText            String?
+  language              String     @default("es")
+  twilioContentSid      String?
+  variablesMapping      Json?
+  buttonsConfig         Json?
+  hasInteractiveButtons Boolean    @default(false)
+  templateType          String     @default("TEXT")
+  campaigns             Campaign[]
+  user                  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("templates")
+}
+
+model MessageLog {
+  id          String    @id @default(cuid())
+  phone       String
+  status      String
+  messageSid  String?
+  error       String?
+  sentAt      DateTime  @default(now())
+  deliveredAt DateTime?
+  readAt      DateTime?
+  campaignId  String
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("message_logs")
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  key         String    @unique
+  userId      String
+  isActive    Boolean   @default(true)
+  lastUsed    DateTime?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  permissions Json?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
+}
+
+model Payment {
+  id                String    @id @default(cuid())
+  userId            String
+  reference         String    @unique
+  amount            Int
+  planType          String
+  status            String    @default("pending")
+  paymentMethod     String
+  transactionId     String?
+  wompiResponse     Json?
+  processedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model QueuedMessage {
+  id           String   @id @default(cuid())
+  phone        String
+  message      String
+  templateId   String?
+  variables    Json?
+  priority     Int      @default(1)
+  scheduledFor DateTime @default(now())
+  status       String   @default("pending")
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+  sentAt       DateTime?
+  error        String?
+
+  @@map("queued_messages")
+}
+
+enum SafeNotifyLeadStatus {
+  new
+  contacted  
+  qualified
+  demo_scheduled
+  demo_completed
+  converted
+  lost
+  follow_up
+
+  @@map("safenotify_lead_status")
+}
+
+enum ClientFunnelLeadStatus {
+  new
+  contacted
+  qualified
+  proposal_sent
+  closed_won
+  closed_lost
+  nurturing
+
+  @@map("client_funnel_lead_status")
+}
+
+// Sistema SafeNotify interno (NO TOCAR - Marketing de SafeNotify)
+model SafeNotifyLead {
+  id                    String                 @id @default(cuid())
+  phone                 String                 @unique
+  name                  String?
+  email                 String?
+  clinicName            String?
+  specialty             String?
+  industry              String?
+  source                String                 @default("whatsapp")
+  
+  monthlyPatients       Int?
+  currentSystem         String?
+  whatsappUsage         String?
+  complianceAwareness   Boolean                @default(false)
+  qualificationScore    Int                    @default(0)
+  status                SafeNotifyLeadStatus   @default(new)
+  grade                 String                 @default("C")
+  
+  conversationState     String                 @default("initial")
+  lastIntent            String?
+  isActive              Boolean                @default(true)
+  lastActivity          DateTime               @default(now())
+  
+  companySize           String?
+  budget                String?
+  timeline              String?
+  authority             String?
+  currentSolution       String?
+  painPoints            String[]
+  biggestPainPoint      String?
+  noShowRate            String?
+  staffSize             String?
+  
+  demoScheduledAt       DateTime?
+  demoCompleted         Boolean                @default(false)
+  conversionDate        DateTime?
+  
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  
+  conversations         SafeNotifyConversation[]
+  demoAppointments      SafeNotifyDemo[]
+  conversationPrompts   ConversationPrompt[]
+  
+  @@map("safenotify_leads")
+}
+
+model SafeNotifyConversation {
+  id              String           @id @default(cuid())
+  leadId          String
+  sessionId       String           @unique
+  
+  messages        Json[]
+  intent          String?
+  currentStep     String           @default("greeting")
+  isActive        Boolean          @default(true)
+  
+  personality     String           @default("sofia")
+  objectionsHandled String[]
+  contentSent     String[]
+  roiCalculated   Boolean          @default(false)
+  
+  handedOff       Boolean          @default(false)
+  handoffReason   String?
+  handoffTime     DateTime?
+  salesRepAssigned String?
+  
+  messageCount    Int              @default(0)
+  responseTime    Float?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  lead            SafeNotifyLead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  @@map("safenotify_conversations")
+}
+
+model ConversationPrompt {
+  id                  String               @id @default(cuid())
+  leadId              String
+  conversationId      String?
+  
+  currentPrompt       String
+  conversationSummary String
+  businessContext     Json
+  
+  promptVersion       Int                  @default(1)
+  lastMessageCount    Int                  @default(0)
+  triggerReason       String
+  
+  tokensUsed          Int?
+  responseQuality     Float?
+  
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  
+  lead                SafeNotifyLead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  @@map("conversation_prompts")
+}
+
+model SafeNotifyDemo {
+  id              String         @id @default(cuid())
+  leadId          String
+  
+  scheduledAt     DateTime
+  duration        Int            @default(30)
+  demoType        String         @default("full")
+  status          String         @default("scheduled")
+  
+  zoomLink        String?
+  meetingId       String?
+  calendarLink    String?
+  salesRepEmail   String?
+  
+  reminderSent    Boolean        @default(false)
+  followupSent    Boolean        @default(false)
+  outcome         String?
+  conversionProbability Int?
+  notes           String?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  lead            SafeNotifyLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  @@map("safenotify_demos")
+}
+
+model SafeNotifyContent {
+  id                String   @id @default(cuid())
+  type              String
+  title             String
+  description       String?
+  
+  url               String?
+  filePath          String?
+  mimeType          String?
+  fileSize          Int?
+  
+  targetAudience    String?
+  useCase           String?
+  sector            String?
+  
+  views             Int      @default(0)
+  lastAccessedAt    DateTime?
+  
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("safenotify_content")
+}
+
+model GPTUsage {
+  id                String          @id @default(cuid())
+  phone             String
+  conversationId    String?
+  leadId            String?
+  
+  modelUsed         String
+  promptTokens      Int
+  completionTokens  Int  
+  totalTokens       Int
+  
+  estimatedCost     Decimal         @default(0) @db.Decimal(10, 6)
+  requestType       String?
+  intent            String?
+  leadScore         Int?
+  
+  responseGenerated Boolean         @default(true)
+  errorMessage      String?
+  processingTime    Int?
+  
+  createdAt         DateTime        @default(now())
+  
+  @@index([phone, createdAt])
+  @@index([leadId, createdAt])
+  @@map("gpt_usage")
+}
+
+model BlacklistedNumber {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  reason    String
+  addedBy   String
+  adminUser String?
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+
+  @@map("blacklisted_numbers")
+}
+
+model ClientFunnel {
+  id                String                @id @default(cuid())
+  name              String
+  description       String?
+  isActive          Boolean               @default(true)
+  userId            String
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leads             ClientFunnelLead[]
+  conversations     FunnelConversation[]
+
+  @@map("client_funnels")
+}
+
+model ClientFunnelLead {
+  id                String                @id @default(cuid())
+  funnelId          String
+  phone             String
+  name              String?
+  email             String?
+  source            String                @default("whatsapp")
+  status            ClientFunnelLeadStatus @default(new)
+  qualificationScore Int                   @default(0)
+  lastActivity      DateTime              @default(now())
+  customFields      Json?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  funnel            ClientFunnel          @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  conversations     FunnelConversation[]
+
+  @@unique([funnelId, phone])
+  @@map("client_funnel_leads")
+}
+
+model FunnelConversation {
+  id              String            @id @default(cuid())
+  funnelId        String
+  leadId          String
+  sessionId       String            @unique
+  messages        Json[]
+  currentStep     String            @default("greeting")
+  isActive        Boolean           @default(true)
+  messageCount    Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  funnel          ClientFunnel      @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  lead            ClientFunnelLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("funnel_conversations")
+}
+
+// ============================================================================
+// 🚀 NUEVAS TABLAS CRM PARA CLIENTES DE SAFENOTIFY
+// ============================================================================
+
+// Números WhatsApp que cada User usa para SUS clientes
+model UserWhatsAppNumber {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  phoneNumber     String    @unique
+  displayName     String
+  
+  isActive        Boolean   @default(true)
+  isPrimary       Boolean   @default(false)
+  
+  webhookUrl      String?
+  twilioSid       String?
+  
+  businessHours   Json?
+  timezone        String    @default("America/Bogota")
+  autoReply       Boolean   @default(true)
+  
+  defaultAgentId  String?
+  
+  totalMessages   Int       @default(0)
+  totalLeads      Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAgent    UserAIAgent? @relation("DefaultAgent", fields: [defaultAgentId], references: [id])
+  conversations   CRMConversation[]
+  
+  @@index([userId, isActive])
+  @@index([phoneNumber])
+  @@map("user_whatsapp_numbers")
+}
+
+// Agentes IA personalizables por cada User
+model UserAIAgent {
+  id                  String    @id @default(cuid())
+  userId              String
+  
+  name                String
+  description         String?
+  role                String    @default("assistant")
+  isActive            Boolean   @default(true)
+  isDefault           Boolean   @default(false)
+  
+  personalityPrompt   String    @db.Text
+  businessPrompt      String    @db.Text
+  objectivesPrompt    String    @db.Text
+  
+  model               String    @default("gpt-3.5-turbo")
+  temperature         Float     @default(0.7)
+  maxTokensPerMessage Int       @default(500)
+  responseStyle       Json?
+  
+  businessRules       Json      @default("{}")
+  triggerKeywords     String[]  @default([])
+  
+  activeHours         Json?
+  weekdaysOnly        Boolean   @default(false)
+  
+  totalConversations  Int       @default(0)
+  totalMessages       Int       @default(0)
+  avgResponseTime     Float     @default(0)
+  satisfactionRating  Float     @default(0)
+  
+  totalTokensUsed     Int       @default(0)
+  estimatedCost       Decimal   @default(0)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations       CRMConversation[]
+  whatsappDefaults    UserWhatsAppNumber[] @relation("DefaultAgent")
+  prompts             UserAgentPrompt[]
+  
+  @@unique([userId, name])
+  @@index([userId, isActive])
+  @@map("user_ai_agents")
+}
+
+// Historial de prompts por agente (evolución dinámica)
+model UserAgentPrompt {
+  id                  String    @id @default(cuid())
+  agentId             String
+  
+  systemPrompt        String    @db.Text
+  contextSummary      String    @db.Text
+  businessContext     Json      @default("{}")
+  
+  version             Int       @default(1)
+  triggerReason       String
+  isActive            Boolean   @default(true)
+  
+  tokensUsed          Int?
+  responseQuality     Float?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  agent               UserAIAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@index([agentId, isActive])
+  @@map("user_agent_prompts")
+}
+
+// Enums para el CRM de clientes
+enum CustomerLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+  ON_HOLD
+}
+
+enum ConversationStatus {
+  ACTIVE
+  PAUSED
+  WAITING
+  COMPLETED
+  ARCHIVED
+  TRANSFERRED
+}
+
+enum ConversationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// Clientes/leads de cada User (NO los leads de SafeNotify)
+model CustomerLead {
+  id                    String              @id @default(cuid())
+  userId                String
+  
+  phone                 String
+  name                  String?
+  email                 String?
+  company               String?
+  
+  customerType          String?
+  businessCategory      String?
+  tags                  String[]            @default([])
+  
+  qualificationScore    Int                 @default(0)
+  leadStatus            CustomerLeadStatus  @default(NEW)
+  leadGrade             String              @default("C")
+  
+  lastPurchase          DateTime?
+  totalSpent            Decimal?            @default(0)
+  preferences           Json?
+  
+  source                String?
+  assignedTo            String?
+  lastActivity          DateTime            @default(now())
+  nextFollowUp          DateTime?
+  
+  internalNotes         String?             @db.Text
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations         CRMConversation[]
+  
+  @@unique([userId, phone])
+  @@index([userId, leadStatus])
+  @@index([userId, lastActivity])
+  @@map("customer_leads")
+}
+
+// Conversaciones entre Users y SUS clientes
+model CRMConversation {
+  id                  String              @id @default(cuid())
+  userId              String
+  customerLeadId      String
+  whatsappNumberId    String
+  
+  sessionId           String              @unique
+  customerPhone       String
+  
+  status              ConversationStatus  @default(ACTIVE)
+  currentStep         String              @default("greeting")
+  priority            ConversationPriority @default(NORMAL)
+  
+  currentAgentId      String?
+  agentName           String?
+  
+  messages            Json[]              @default([])
+  messageCount        Int                 @default(0)
+  
+  firstResponseTime   Int?
+  avgResponseTime     Float?
+  lastMessageAt       DateTime            @default(now())
+  
+  requiresAttention   Boolean             @default(false)
+  assignedToUser      String?
+  handoffReason       String?
+  handoffAt           DateTime?
+  
+  tags                String[]            @default([])
+  category            String?
+  intent              String?
+  
+  satisfactionRating  Int?
+  outcome             String?
+  conversionValue     Decimal?            @default(0)
+  
+  internalNotes       String?             @db.Text
+  
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerLead        CustomerLead        @relation(fields: [customerLeadId], references: [id], onDelete: Cascade)
+  whatsappNumber      UserWhatsAppNumber  @relation(fields: [whatsappNumberId], references: [id])
+  currentAgent        UserAIAgent?        @relation(fields: [currentAgentId], references: [id])
+  
+  @@index([userId, status])
+  @@index([customerLeadId])
+  @@index([whatsappNumberId, createdAt])
+  @@index([lastMessageAt])
+  @@map("crm_conversations")
+}
+
+// Tags personalizados por User
+model CRMTag {
+  id          String    @id @default(cuid())
+  userId      String
+  
+  name        String
+  color       String    @default("#3b82f6")
+  description String?
+  category    String?
+  
+  usageCount  Int       @default(0)
+  isActive    Boolean   @default(true)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, name])
+  @@index([userId, category])
+  @@map("crm_tags")
+}
+
+// Métricas agregadas por User
+model CRMMetrics {
+  id                    String    @id @default(cuid())
+  userId                String
+  
+  period                String
+  periodStart           DateTime
+  periodEnd             DateTime
+  
+  totalConversations    Int       @default(0)
+  activeConversations   Int       @default(0)
+  newConversations      Int       @default(0)
+  completedConversations Int      @default(0)
+  
+  totalLeads            Int       @default(0)
+  newLeads              Int       @default(0)
+  qualifiedLeads        Int       @default(0)
+  convertedLeads        Int       @default(0)
+  
+  totalMessages         Int       @default(0)
+  aiMessages            Int       @default(0)
+  humanMessages         Int       @default(0)
+  avgResponseTime       Float     @default(0)
+  
+  totalRevenue          Decimal   @default(0)
+  avgConversionValue    Decimal   @default(0)
+  satisfactionAvg       Float     @default(0)
+  
+  totalTokensUsed       Int       @default(0)
+  estimatedAICost       Decimal   @default(0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, period, periodStart])
+  @@index([userId, period])
+  @@map("crm_metrics")
+}

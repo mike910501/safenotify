@@ -16,6 +16,10 @@ const campaignProgressRoutes = require('./routes/campaignProgress');
 const scheduledCampaignsRoutes = require('./routes/scheduledCampaigns');
 const blacklistRoutes = require('./routes/blacklist');
 const analyticsRoutes = require('./routes/analytics');
+const agentRoutes = require('./routes/agents'); // 🚀 NEW: AI Agents CRM
+const conversationRoutes = require('./routes/conversations'); // 💬 NEW: Conversation Management
+const crmWebhookRoutes = require('./routes/crmWebhook'); // 📞 NEW: CRM WhatsApp Webhook
+const humanTakeoverRoutes = require('./routes/humanTakeover'); // 🙋‍♂️ PHASE 5.1: Human Takeover
 const schedulerService = require('./services/schedulerService');
 const blacklistService = require('./services/blacklistService');
 
@@ -2324,9 +2328,25 @@ app.use('/api/blacklist', blacklistRoutes);
 // Mount analytics routes
 app.use('/api/analytics', analyticsRoutes);
 
+// 🚀 Mount AI Agents CRM routes
+app.use('/api/agents', agentRoutes);
+
+// 💬 Mount Conversation Management routes
+app.use('/api/conversations', conversationRoutes);
+
+// 🙋‍♂️ PHASE 5.1: Mount Human Takeover routes
+app.use('/api/takeover', humanTakeoverRoutes);
+
 // Mount Sofia AI webhook routes
 const sofiaWebhookRoutes = require('./routes/sofiaWebhook');
 app.use('/api/webhooks', sofiaWebhookRoutes);
+
+// 📞 Mount CRM Webhook routes
+app.use('/api/webhooks', crmWebhookRoutes);
+
+// 🔌 Mount Public API routes (Phase 5.2)
+const publicApiRoutes = require('./routes/publicApi');
+app.use('/api/v1', publicApiRoutes);
 
 // Export user data endpoint
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {

@@ -29,7 +29,12 @@ const authenticateToken = async (req, res, next) => {
         email: true,
         name: true,
         role: true,
-        planType: true
+        planType: true,
+        // 🚀 CRM FIELDS FOR USER-CENTRIC CRM
+        crmEnabled: true,
+        crmPlan: true,
+        maxAgents: true,
+        maxWhatsAppNumbers: true
       }
     });
 

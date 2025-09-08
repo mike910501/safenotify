@@ -64,12 +64,16 @@ router.post('/sofia-sales',
         return res.status(429).json({ error: 'Rate limit exceeded' });
       }
 
-      // Process with Sofia AI
-      console.log('🤖 Processing with Sofia AI...');
+      // 🚀 MULTI-AGENT: Detect which agent to use
+      const selectedAgentId = await detectAgentForMessage(phoneNumber, Body, To);
+      
+      // Process with AI Agent (Sofia or custom)
+      console.log('🤖 Processing with AI Agent...', selectedAgentId ? `Agent: ${selectedAgentId}` : 'Default: Sofia');
       const aiResponse = await sofiaAIService.processProspectMessage(
         phoneNumber,
         Body,
-        MessageSid
+        MessageSid,
+        selectedAgentId
       );
 
       if (!aiResponse.success) {
@@ -348,5 +352,157 @@ router.post('/sofia-sales/status',
     }
   }
 );
+
+/**
+ * 🚀 MULTI-AGENT: Detect which agent should handle the message
+ */
+async function detectAgentForMessage(phoneNumber, messageBody, whatsappNumber) {
+  try {
+    console.log('🔍 Detecting agent for message...');
+    
+    // 1. Check if there's an active conversation with assigned agent
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const activeConversation = await prisma.safeNotifyConversation.findFirst({
+      where: {
+        lead: {
+          phone: phoneNumber
+        },
+        isActive: true
+      },
+      include: {
+        lead: true
+      }
+    });
+
+    if (activeConversation && activeConversation.currentAgent && activeConversation.currentAgent !== 'Sofia') {
+      // Find agent by name (legacy support)
+      const assignedAgent = await prisma.cRMAIAgent.findFirst({
+        where: {
+          name: activeConversation.currentAgent,
+          isActive: true
+        }
+      });
+      
+      if (assignedAgent) {
+        console.log('✅ Using existing assigned agent:', assignedAgent.name);
+        return assignedAgent.id;
+      }
+    }
+
+    // 2. Check for keyword-based agent routing
+    const keywordAgent = await findAgentByKeyword(messageBody, whatsappNumber);
+    if (keywordAgent) {
+      console.log('✅ Agent detected by keyword:', keywordAgent.name);
+      return keywordAgent.id;
+    }
+
+    // 3. Check business rules for automatic agent assignment
+    const ruleBasedAgent = await findAgentByBusinessRules(phoneNumber, messageBody);
+    if (ruleBasedAgent) {
+      console.log('✅ Agent assigned by business rules:', ruleBasedAgent.name);
+      return ruleBasedAgent.id;
+    }
+
+    // 4. Default to Sofia
+    console.log('📝 No specific agent found, using Sofia default');
+    return null;
+
+  } catch (error) {
+    console.error('❌ Error detecting agent:', error);
+    return null; // Fall back to Sofia
+  }
+}
+
+/**
+ * Find agent based on message keywords
+ */
+async function findAgentByKeyword(messageBody, whatsappNumber) {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Get organization ID from WhatsApp number (simplified for now)
+    const organizationId = 'default'; // TODO: Map WhatsApp number to organization
+    
+    const agents = await prisma.cRMAIAgent.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        triggerConditions: {
+          not: {}
+        }
+      }
+    });
+
+    for (const agent of agents) {
+      const triggers = agent.triggerConditions;
+      if (triggers.keywords && Array.isArray(triggers.keywords)) {
+        for (const keyword of triggers.keywords) {
+          if (messageBody.toLowerCase().includes(keyword.toLowerCase())) {
+            return agent;
+          }
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error finding agent by keyword:', error);
+    return null;
+  }
+}
+
+/**
+ * Find agent based on business rules
+ */
+async function findAgentByBusinessRules(phoneNumber, messageBody) {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Example business rules:
+    // - If message contains "soporte" -> Support Agent
+    // - If message contains "ventas" -> Sales Agent  
+    // - If time is after hours -> Night Agent
+    // - If customer is VIP -> Premium Agent
+    
+    const supportKeywords = ['soporte', 'ayuda', 'problema', 'error', 'falla'];
+    const salesKeywords = ['comprar', 'precio', 'venta', 'demo', 'prueba'];
+    
+    const organizationId = 'default'; // TODO: Get real organization ID
+    
+    if (supportKeywords.some(keyword => messageBody.toLowerCase().includes(keyword))) {
+      const supportAgent = await prisma.cRMAIAgent.findFirst({
+        where: {
+          organizationId,
+          name: { contains: 'soporte' },
+          isActive: true
+        }
+      });
+      if (supportAgent) return supportAgent;
+    }
+    
+    if (salesKeywords.some(keyword => messageBody.toLowerCase().includes(keyword))) {
+      const salesAgent = await prisma.cRMAIAgent.findFirst({
+        where: {
+          organizationId,
+          personality: {
+            path: ['specialization'],
+            string_contains: 'sales'
+          },
+          isActive: true
+        }
+      });
+      if (salesAgent) return salesAgent;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error finding agent by business rules:', error);
+    return null;
+  }
+}
 
 module.exports = router;

@@ -25,7 +25,8 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Enviar Mensajes', href: '/dashboard/send', icon: Send },
     { name: 'Template Studio', href: '/dashboard/templates', icon: FileText, isTemplateStudio: true },
-    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, isAnalytics: true },
+    { name: 'CRM WhatsApp', href: '/dashboard/crm', icon: MessageSquare, isCRM: true },
+    { name: 'CRM Analytics', href: '/dashboard/crm/analytics', icon: BarChart3, isCRMAnalytics: true },
     { name: 'Historial', href: '/dashboard/history', icon: Clock },
     { name: 'Planes y Precios', href: '/dashboard/upgrade', icon: CreditCard },
     { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
@@ -85,7 +86,9 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
           const isUpgradeLink = item.href === '/dashboard/upgrade'
           const isAdminLink = item.href === '/admin'
           const isTemplateStudio = (item as any).isTemplateStudio
+          const isCRM = (item as any).isCRM
           const isAnalytics = (item as any).isAnalytics
+          const isCRMAnalytics = (item as any).isCRMAnalytics
           const hasBadge = (item as any).badge
           
           return (
@@ -110,7 +113,9 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                   isAdminLink ? 'text-red-600 group-hover:text-white' :
                   isUpgradeLink ? 'text-purple-600 group-hover:text-white' :
                   isTemplateStudio ? 'text-purple-500 group-hover:text-white' :
+                  isCRM ? 'text-green-500 group-hover:text-white' :
                   isAnalytics ? 'text-blue-500 group-hover:text-white' :
+                  isCRMAnalytics ? 'text-cyan-500 group-hover:text-white' :
                   'text-gray-400 group-hover:text-white'
                 } transition-colors duration-200 flex-shrink-0`}
                 animation={isActive(item.href) ? 'pulse' : undefined}
@@ -121,8 +126,16 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
                     <span className="bg-gradient-to-r from-purple-500 via-pink-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
                       {item.name}
                     </span>
+                  ) : isCRM ? (
+                    <span className="bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
+                      {item.name}
+                    </span>
                   ) : isAnalytics ? (
                     <span className="bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
+                      {item.name}
+                    </span>
+                  ) : isCRMAnalytics ? (
+                    <span className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 bg-clip-text text-transparent font-semibold bg-[length:300%_100%] animate-gradient-x">
                       {item.name}
                     </span>
                   ) : (

@@ -1,0 +1,332 @@
+// 🔥 EXTENSIÓN DE SCHEMA PARA WHATSAPP CRM CON IA PERSONALIZABLE
+// Este archivo contiene las nuevas tablas requeridas para el módulo CRM
+
+// ============================================================================
+// 1. GESTIÓN DE ORGANIZACIONES Y USUARIOS CRM
+// ============================================================================
+
+model CRMOrganization {
+  id                String    @id @default(cuid())
+  name              String
+  domain            String?   @unique
+  subscription      String    @default("basic") // basic, professional, enterprise
+  whatsappNumbers   Json      // Array de números de WhatsApp configurados
+  settings          Json      @default("{}")
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relaciones
+  users             CRMUser[]
+  aiAgents          CRMAIAgent[]
+  conversations     CRMConversation[]
+  templates         CRMTemplate[]
+  automations       CRMAutomation[]
+  analytics         CRMAnalytics[]
+  
+  @@map("crm_organizations")
+}
+
+model CRMUser {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String
+  role           String    // admin, agent, viewer, custom
+  permissions    Json      @default("{}")
+  isActive       Boolean   @default(true)
+  lastLogin      DateTime?
+  preferences    Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Relaciones
+  organizationId String
+  organization   CRMOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedChats  CRMConversation[]
+  activities     CRMActivity[]
+  
+  @@map("crm_users")
+}
+
+// ============================================================================
+// 2. AGENTES IA PERSONALIZABLES
+// ============================================================================
+
+model CRMAIAgent {
+  id                  String    @id @default(cuid())
+  name                String
+  description         String?
+  personality         Json      // Personalidad completa del agente
+  systemPrompt        String    @db.Text
+  businessRules       Json      @default("{}")
+  triggerConditions   Json      @default("{}")
+  isActive            Boolean   @default(true)
+  model               String    @default("gpt-3.5-turbo")
+  temperature         Float     @default(0.7)
+  maxTokens           Int       @default(500)
+  responseStyle       Json      @default("{}")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // Estadísticas
+  totalConversations  Int       @default(0)
+  avgResponseTime     Float     @default(0)
+  satisfactionScore   Float     @default(0)
+  
+  // Relaciones
+  organizationId      String
+  organization        CRMOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations       CRMConversation[]
+  prompts             CRMAgentPrompt[]
+  
+  @@map("crm_ai_agents")
+}
+
+model CRMAgentPrompt {
+  id          String    @id @default(cuid())
+  agentId     String
+  version     Int       @default(1)
+  promptText  String    @db.Text
+  isActive    Boolean   @default(true)
+  performance Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  
+  // Relaciones
+  agent       CRMAIAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@unique([agentId, version])
+  @@map("crm_agent_prompts")
+}
+
+// ============================================================================
+// 3. CONVERSACIONES Y MENSAJES CRM
+// ============================================================================
+
+model CRMConversation {
+  id                String      @id @default(cuid())
+  whatsappNumber    String      // Número de WhatsApp de la organización
+  contactPhone      String      // Teléfono del contacto
+  contactName       String?
+  status            String      @default("active") // active, closed, archived, transferred
+  priority          String      @default("normal") // low, normal, high, urgent
+  labels            String[]    @default([])
+  lastMessageAt     DateTime    @default(now())
+  responseTime      Int?        // Tiempo de respuesta en segundos
+  satisfactionScore Int?        // 1-5 rating
+  notes             String?     @db.Text
+  metadata          Json        @default("{}")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // IA y automatización
+  currentAgentId    String?
+  autoResponses     Boolean     @default(true)
+  humanHandoff      Boolean     @default(false)
+  handoffReason     String?
+  
+  // Relaciones
+  organizationId    String
+  organization      CRMOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUserId    String?
+  assignedUser      CRMUser?    @relation(fields: [assignedUserId], references: [id])
+  currentAgent      CRMAIAgent? @relation(fields: [currentAgentId], references: [id])
+  messages          CRMMessage[]
+  activities        CRMActivity[]
+  contact           CRMContact?
+  
+  @@index([organizationId, whatsappNumber])
+  @@index([contactPhone])
+  @@map("crm_conversations")
+}
+
+model CRMMessage {
+  id              String    @id @default(cuid())
+  conversationId  String
+  messageSid      String?   @unique
+  direction       String    // inbound, outbound
+  content         String    @db.Text
+  messageType     String    @default("text") // text, image, document, audio, video
+  mediaUrl        String?
+  status          String    @default("sent") // sent, delivered, read, failed
+  timestamp       DateTime  @default(now())
+  
+  // IA processing
+  intent          String?
+  sentiment       String?   // positive, neutral, negative
+  aiGenerated     Boolean   @default(false)
+  agentId         String?
+  promptVersion   Int?
+  processingTime  Int?      // milliseconds
+  
+  // Relaciones
+  conversation    CRMConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("crm_messages")
+}
+
+// ============================================================================
+// 4. CONTACTOS Y LEADS CRM
+// ============================================================================
+
+model CRMContact {
+  id                String      @id @default(cuid())
+  phone             String      
+  name              String?
+  email             String?
+  company           String?
+  jobTitle          String?
+  tags              String[]    @default([])
+  customFields      Json        @default("{}")
+  leadScore         Int         @default(0)
+  lifecycle         String      @default("subscriber") // subscriber, lead, customer, evangelist
+  source            String?     // whatsapp, referral, campaign
+  lastActivity      DateTime    @default(now())
+  notes             String?     @db.Text
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Conversaciones
+  conversationId    String?     @unique
+  conversation      CRMConversation? @relation(fields: [conversationId], references: [id])
+  
+  // Relación con SafeNotify leads existentes
+  safenotifyLeadId  String?
+  
+  @@unique([phone])
+  @@map("crm_contacts")
+}
+
+// ============================================================================
+// 5. PLANTILLAS Y AUTOMATIZACIONES
+// ============================================================================
+
+model CRMTemplate {
+  id              String    @id @default(cuid())
+  name            String
+  category        String    // greeting, follow_up, closing, support
+  content         String    @db.Text
+  variables       Json      @default("{}")
+  isActive        Boolean   @default(true)
+  usageCount      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relaciones
+  organizationId  String
+  organization    CRMOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@map("crm_templates")
+}
+
+model CRMAutomation {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  triggerType     String    // message_received, keyword, time_based, user_action
+  triggerValue    Json      @default("{}")
+  conditions      Json      @default("{}")
+  actions         Json      @default("{}")
+  isActive        Boolean   @default(true)
+  executionCount  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relaciones
+  organizationId  String
+  organization    CRMOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@map("crm_automations")
+}
+
+// ============================================================================
+// 6. ANALYTICS Y MÉTRICAS
+// ============================================================================
+
+model CRMAnalytics {
+  id                  String    @id @default(cuid())
+  date                DateTime  @default(now())
+  period              String    // daily, weekly, monthly
+  
+  // Métricas de conversación
+  totalConversations  Int       @default(0)
+  newConversations    Int       @default(0)
+  closedConversations Int       @default(0)
+  avgResponseTime     Float     @default(0)
+  
+  // Métricas de IA
+  aiMessages          Int       @default(0)
+  humanMessages       Int       @default(0)
+  automationRate      Float     @default(0)
+  satisfactionAvg     Float     @default(0)
+  
+  // Métricas de conversión
+  leadsGenerated      Int       @default(0)
+  leadsConverted      Int       @default(0)
+  conversionRate      Float     @default(0)
+  
+  // Costos
+  tokenUsage          Int       @default(0)
+  estimatedCost       Float     @default(0)
+  
+  // Relaciones
+  organizationId      String
+  organization        CRMOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@unique([organizationId, date, period])
+  @@map("crm_analytics")
+}
+
+// ============================================================================
+// 7. ACTIVIDADES Y LOGS
+// ============================================================================
+
+model CRMActivity {
+  id              String    @id @default(cuid())
+  type            String    // message_sent, agent_assigned, status_changed, note_added
+  description     String
+  metadata        Json      @default("{}")
+  timestamp       DateTime  @default(now())
+  
+  // Relaciones
+  conversationId  String?
+  conversation    CRMConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            CRMUser?  @relation(fields: [userId], references: [id])
+  
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("crm_activities")
+}
+
+// ============================================================================
+// 8. INTEGRACIONES CON SISTEMA EXISTENTE
+// ============================================================================
+
+// Extensión del modelo User existente para CRM
+// Esta tabla conectará usuarios existentes de SafeNotify con el CRM
+model UserCRMProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique // FK a tabla User existente
+  crmUserId       String?   @unique // FK a CRMUser
+  crmRole         String?   // Rol específico en CRM
+  crmPermissions  Json      @default("{}")
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("user_crm_profiles")
+}
+
+// Conexión entre SafeNotifyLeads existentes y CRM
+model CRMLeadConnection {
+  id                String    @id @default(cuid())
+  safenotifyLeadId  String    @unique // FK a SafeNotifyLead existente
+  crmContactId      String    @unique // FK a CRMContact
+  syncStatus        String    @default("synced") // synced, pending, error
+  lastSync          DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  
+  @@map("crm_lead_connections")
+}

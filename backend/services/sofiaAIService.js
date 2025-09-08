@@ -9,6 +9,7 @@ const prisma = new PrismaClient();
 /**
  * Sofia AI Service - Especialista en vender SafeNotify a cualquier tipo de negocio
  * Personalidad: Consultiva, educativa, enfocada en compliance y ROI
+ * AHORA COMPATIBLE CON SISTEMA MULTI-AGENTE CRM
  */
 
 // Sofia's personality configuration
@@ -157,7 +158,7 @@ async function createOrFindLead(phoneNumber, initialData = {}) {
 /**
  * Process incoming message from prospect
  */
-async function processProspectMessage(phoneNumber, messageText, messageSid = null) {
+async function processProspectMessage(phoneNumber, messageText, messageSid = null, agentId = null) {
   try {
     console.log('🎯 Sofia AI - Processing message from:', phoneNumber.substring(0, 8) + '***');
     console.log('📝 Message content:', messageText.substring(0, 50) + '...');
@@ -205,6 +206,21 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
       }
     });
 
+    // 🤖 Sofia AI: SafeNotify's internal sales system
+    // Sofia maneja leads para vender SafeNotify, NO es parte del User CRM
+    const selectedAgent = {
+      id: 'sofia_internal',
+      name: 'Sofia',
+      description: 'Asistente de ventas interna de SafeNotify'
+    };
+    console.log('🎯 Using Sofia (SafeNotify internal sales agent)');
+
+    // Update conversation with Sofia as current agent
+    await prisma.safeNotifyConversation.update({
+      where: { id: conversation.id },
+      data: { currentAgent: 'Sofia' }
+    });
+
     // Check if we need to generate/update dynamic prompt
     let dynamicPrompt = null;
     const messageCount = updatedMessages.length;
@@ -215,7 +231,8 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
       dynamicPrompt = await dynamicPromptService.generateInitialPrompt(
         lead.id,
         phoneNumber,
-        messageText
+        messageText,
+        { agentId: 'sofia_internal' }
       );
     } else {
       // Check if we should update prompt (every 3 messages)
@@ -225,37 +242,39 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
         dynamicPrompt = await dynamicPromptService.updatePromptWithSummary(
           lead.id,
           updatedMessages,
-          { content: messageText }
+          { content: messageText, agentId: 'sofia_internal' }
         );
       } else {
         dynamicPrompt = currentPrompt;
       }
     }
 
-    // Generate Sofia's response using dynamic prompt
-    const response = await generateSofiaResponseWithDynamicPrompt(
+    // Generate AI response using Sofia with dynamic prompt
+    const response = await generateAgentResponseWithDynamicPrompt(
       conversation, 
       messageText, 
       intent, 
-      dynamicPrompt
+      dynamicPrompt,
+      null // Sofia uses built-in prompts, not CRM agents
     );
 
-    // Add Sofia's response to conversation
-    const sofiaMessage = {
+    // Add AI agent's response to conversation
+    const agentMessage = {
       role: 'assistant',
       content: response.message,
       timestamp: new Date().toISOString(),
-      personality: 'sofia'
+      personality: 'sofia',
+      agentId: 'sofia_internal'
     };
 
-    const finalMessages = [...updatedMessages, sofiaMessage];
+    const finalMessages = [...updatedMessages, agentMessage];
     
-    // Update prompt AFTER Sofia responds to include her response
-    console.log('🔄 Updating prompt after Sofia response...');
+    // Update prompt AFTER agent responds to include their response
+    console.log('🔄 Updating prompt after agent response...');
     await dynamicPromptService.updatePromptWithSummary(
       lead.id,
-      finalMessages, // Include Sofia's response in the summary
-      { content: response.message, role: 'assistant' }
+      finalMessages, // Include agent's response in the summary
+      { content: response.message, role: 'assistant', agentId: 'sofia_internal' }
     );
 
     // Update conversation and lead state
@@ -1066,19 +1085,31 @@ function calculateGrade(score) {
 /**
  * Generate Sofia's response using dynamic AI-generated prompt
  */
-async function generateSofiaResponseWithDynamicPrompt(conversation, messageText, intent, dynamicPrompt) {
+/**
+ * 🚀 MULTI-AGENT: Generate response with dynamic prompt using specified agent
+ */
+async function generateAgentResponseWithDynamicPrompt(conversation, messageText, intent, dynamicPrompt, selectedAgent) {
   try {
-    console.log('🤖 Generating Sofia response with dynamic prompt...');
+    const agentName = selectedAgent?.name || 'Sofia';
+    console.log(`🤖 Generating ${agentName} response with dynamic prompt...`);
     
     if (!dynamicPrompt || !dynamicPrompt.success) {
       console.log('⚠️ No dynamic prompt available, falling back to static');
       return await generateSofiaResponse(conversation, messageText, intent);
     }
 
-    // Use OpenAI with the dynamic prompt
+    // Use agent-specific system prompt if available
+    let systemPrompt = dynamicPrompt.systemPrompt;
+    if (selectedAgent && selectedAgent.systemPrompt && selectedAgent.name !== 'Sofia') {
+      // Merge agent's custom prompt with dynamic context
+      systemPrompt = `${selectedAgent.systemPrompt}\n\nCONTEXTO DINÁMICO:\n${dynamicPrompt.systemPrompt}`;
+      console.log(`📝 Using custom agent prompt for: ${agentName}`);
+    }
+
+    // Use OpenAI with the agent-specific prompt
     const aiResponse = await openaiService.generateNaturalResponseWithCustomPrompt(
       conversation.messages || [],
-      dynamicPrompt.systemPrompt,
+      systemPrompt,
       dynamicPrompt.businessContext,
       intent
     );
@@ -1119,6 +1150,7 @@ async function generateSofiaResponseWithDynamicPrompt(conversation, messageText,
       handoffRequired: nextStepAnalysis.handoffRequired || false,
       aiGenerated: true,
       dynamicPrompt: true,
+      agentUsed: agentName,
       tokens_used: aiResponse.tokens_used
     };
 
@@ -1126,6 +1158,46 @@ async function generateSofiaResponseWithDynamicPrompt(conversation, messageText,
     console.error('❌ Dynamic prompt response failed:', error);
     return await generateSofiaResponse(conversation, messageText, intent);
   }
+}
+
+// Legacy function - mantener para compatibilidad
+async function generateSofiaResponseWithDynamicPrompt(conversation, messageText, intent, dynamicPrompt) {
+  return await generateAgentResponseWithDynamicPrompt(conversation, messageText, intent, dynamicPrompt, null);
+}
+
+/**
+ * 🚀 Sofia AI: Sistema interno de SafeNotify
+ * Sofia no es parte del User CRM, es el asistente de ventas interno
+ * para vender SafeNotify a prospectos
+ */
+
+/**
+ * Get Sofia's original system prompt
+ */
+function getSofiaOriginalPrompt() {
+  return `Eres Sofia, especialista en comunicación automatizada y compliance para TODOS los negocios en Colombia 🚀
+
+PERSONALIDAD:
+- Consultiva y amigable 😊
+- Educativa y profesional
+- Enfocada en ROI y compliance
+- Empática con challenges de cada negocio
+- Usa emojis apropiados (máximo 2 por mensaje)
+
+APPROACH DE VENTA:
+- IDENTIFICA primero el tipo de negocio
+- Adapta ejemplos al sector específico
+- Educa sobre riesgos legales (aplica a TODOS)
+- Cuantifica ROI según su industria
+- Menciona casos de éxito similares
+
+STYLE DE CONVERSACIÓN:
+- Respuestas máximo 180 caracteres para WhatsApp
+- Usa emojis relevantes (no más de 2)
+- Preguntas abiertas para qualification
+- Menciona beneficios específicos por industria
+- Usa números concretos (%, $, tiempo)
+- Termina con pregunta para continuar conversación`;
 }
 
 /**
@@ -1276,5 +1348,7 @@ module.exports = {
   calculateLeadScore,
   SOFIA_PERSONALITY,
   CONVERSATION_STATES,
-  QUALIFYING_QUESTIONS
+  QUALIFYING_QUESTIONS,
+  // 🚀 NEW MULTI-AGENT EXPORTS
+  generateAgentResponseWithDynamicPrompt
 };

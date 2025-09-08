@@ -1,0 +1,411 @@
+// 🚀 EXTENSIÓN CRM PARA CLIENTES DE SAFENOTIFY
+// Cada User (cliente de SafeNotify) gestiona SUS propios leads y conversaciones
+
+// ============================================================================
+// 1. EXTENDER TABLA USER (Clientes de SafeNotify)
+// ============================================================================
+
+// Agregar estos campos a model User existente:
+/*
+model User {
+  // ... todos los campos existentes (NO TOCAR) ...
+  
+  // 🚀 NUEVOS CAMPOS CRM PARA CLIENTES
+  crmEnabled        Boolean   @default(false)    // Si activó el CRM
+  crmPlan           String    @default("basic")  // "basic", "pro", "enterprise"
+  maxAgents         Int       @default(1)        // Límite según plan CRM
+  maxWhatsAppNumbers Int      @default(1)        // Números WhatsApp permitidos
+  
+  // 🚀 NUEVAS RELACIONES CRM
+  whatsappNumbers   UserWhatsAppNumber[]    // SUS números WhatsApp
+  aiAgents          UserAIAgent[]           // SUS agentes IA
+  customerLeads     CustomerLead[]          // SUS clientes/leads  
+  crmConversations  CRMConversation[]       // SUS conversaciones
+  crmTags           CRMTag[]                // SUS tags personalizados
+}
+*/
+
+// ============================================================================
+// 2. NÚMEROS WHATSAPP POR USER (Cada cliente tiene SUS números)
+// ============================================================================
+
+model UserWhatsAppNumber {
+  id              String    @id @default(cuid())
+  userId          String    // FK a User (cliente de SafeNotify)
+  
+  // Número WhatsApp
+  phoneNumber     String    @unique    // "+573001234567"
+  displayName     String                // "Clínica Central"
+  
+  // Configuración
+  isActive        Boolean   @default(true)
+  isPrimary       Boolean   @default(false)   // Número principal del User
+  
+  // Webhook & Twilio
+  webhookUrl      String?   // URL específica para este número
+  twilioSid       String?   // SID del número en Twilio
+  
+  // Configuración de horarios
+  businessHours   Json?     // {"monday": {"start": "09:00", "end": "18:00"}}
+  timezone        String    @default("America/Bogota")
+  autoReply       Boolean   @default(true)
+  
+  // Agente por defecto para este número
+  defaultAgentId  String?   // FK a UserAIAgent
+  
+  // Métricas
+  totalMessages   Int       @default(0)
+  totalLeads      Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relaciones
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAgent    UserAIAgent? @relation("DefaultAgent", fields: [defaultAgentId], references: [id])
+  conversations   CRMConversation[]
+  
+  @@index([userId, isActive])
+  @@index([phoneNumber])
+  @@map("user_whatsapp_numbers")
+}
+
+// ============================================================================
+// 3. AGENTES IA POR USER (Personalizables por cada cliente)
+// ============================================================================
+
+model UserAIAgent {
+  id                  String    @id @default(cuid())
+  userId              String    // FK a User (cliente de SafeNotify)
+  
+  // Configuración básica
+  name                String    // "DrBot", "Recepción", "Ventas"
+  description         String?
+  role                String    @default("assistant") // "sales", "support", "reception"
+  isActive            Boolean   @default(true)
+  isDefault           Boolean   @default(false)    // Un agente default por User
+  
+  // Personalidad y prompts (para SU negocio específico)
+  personalityPrompt   String    @db.Text  // Personalidad específica del negocio
+  businessPrompt      String    @db.Text  // Contexto del negocio del User
+  objectivesPrompt    String    @db.Text  // Objetivos específicos
+  
+  // Configuración de IA
+  model               String    @default("gpt-3.5-turbo")
+  temperature         Float     @default(0.7)
+  maxTokensPerMessage Int       @default(500)
+  responseStyle       Json?     // {"tone": "professional", "length": "concise"}
+  
+  // Reglas de negocio (específicas del User)
+  businessRules       Json      @default("{}")  // Reglas del negocio del User
+  triggerKeywords     String[]  @default([])    // Keywords que activan este agente
+  
+  // Restricciones horarias
+  activeHours         Json?     // Horarios en los que está activo
+  weekdaysOnly        Boolean   @default(false)
+  
+  // Métricas de rendimiento
+  totalConversations  Int       @default(0)
+  totalMessages       Int       @default(0)
+  avgResponseTime     Float     @default(0)     // Segundos
+  satisfactionRating  Float     @default(0)     // 0-5
+  
+  // Costos
+  totalTokensUsed     Int       @default(0)
+  estimatedCost       Decimal   @default(0)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // Relaciones
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations       CRMConversation[]
+  whatsappDefaults    UserWhatsAppNumber[] @relation("DefaultAgent")
+  prompts             UserAgentPrompt[]    // Historial de prompts
+  
+  @@unique([userId, name])  // Nombres únicos por User
+  @@index([userId, isActive])
+  @@map("user_ai_agents")
+}
+
+// ============================================================================
+// 4. HISTORIAL DE PROMPTS POR AGENTE (Como ConversationPrompt pero per-agent)
+// ============================================================================
+
+model UserAgentPrompt {
+  id                  String    @id @default(cuid())
+  agentId             String    // FK a UserAIAgent
+  
+  // Prompt dinámico generado
+  systemPrompt        String    @db.Text      // Prompt completo para este contexto
+  contextSummary      String    @db.Text      // Resumen del contexto
+  businessContext     Json      @default("{}")// Contexto específico del negocio
+  
+  // Evolución del prompt
+  version             Int       @default(1)
+  triggerReason       String    // "initial", "conversation_update", "manual"
+  isActive            Boolean   @default(true)
+  
+  // Performance
+  tokensUsed          Int?
+  responseQuality     Float?    // Rating de calidad de respuestas
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // Relaciones
+  agent               UserAIAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@index([agentId, isActive])
+  @@map("user_agent_prompts")
+}
+
+// ============================================================================
+// 5. LEADS/CLIENTES DEL USER (SUS clientes, no SafeNotify leads)
+// ============================================================================
+
+model CustomerLead {
+  id                    String              @id @default(cuid())
+  userId                String              // FK a User (propietario)
+  
+  // Información del lead/cliente
+  phone                 String              // Teléfono del cliente del User
+  name                  String?
+  email                 String?
+  company               String?
+  
+  // Segmentación específica del negocio del User
+  customerType          String?             // "patient", "customer", "client"
+  businessCategory      String?             // Categoría en el negocio del User
+  tags                  String[]            @default([])
+  
+  // Scoring y calificación (para el negocio del User)
+  qualificationScore    Int                 @default(0)  // 0-100
+  leadStatus            CustomerLeadStatus  @default(NEW)
+  leadGrade             String              @default("C") // A, B, C
+  
+  // Información específica del negocio
+  lastPurchase          DateTime?
+  totalSpent            Decimal?            @default(0)
+  preferences           Json?               // Preferencias del cliente
+  
+  // Seguimiento
+  source                String?             // "whatsapp", "referral", "web"
+  assignedTo            String?             // Email del empleado asignado
+  lastActivity          DateTime            @default(now())
+  nextFollowUp          DateTime?
+  
+  // Notas internas del User
+  internalNotes         String?             @db.Text
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  // Relaciones
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations         CRMConversation[]
+  
+  @@unique([userId, phone])  // Teléfono único por User
+  @@index([userId, leadStatus])
+  @@index([userId, lastActivity])
+  @@map("customer_leads")
+}
+
+// ============================================================================
+// 6. CONVERSACIONES CRM DEL USER (Para SUS clientes)
+// ============================================================================
+
+model CRMConversation {
+  id                  String              @id @default(cuid())
+  userId              String              // FK a User (propietario)
+  customerLeadId      String              // FK a CustomerLead
+  whatsappNumberId    String              // FK a UserWhatsAppNumber (número usado)
+  
+  // Identificación de la conversación
+  sessionId           String              @unique
+  customerPhone       String              // Teléfono del cliente
+  
+  // Estado de la conversación
+  status              ConversationStatus  @default(ACTIVE)
+  currentStep         String              @default("greeting")
+  priority            ConversationPriority @default(NORMAL)
+  
+  // IA y agente asignado
+  currentAgentId      String?             // FK a UserAIAgent
+  agentName           String?             // Nombre del agente (legacy)
+  
+  // Contenido de la conversación
+  messages            Json[]              @default([]) // Array de mensajes
+  messageCount        Int                 @default(0)
+  
+  // Seguimiento y métricas
+  firstResponseTime   Int?                // Tiempo primera respuesta (segundos)
+  avgResponseTime     Float?              // Tiempo promedio de respuesta
+  lastMessageAt       DateTime            @default(now())
+  
+  // Gestión humana
+  requiresAttention   Boolean             @default(false)
+  assignedToUser      String?             // Email del empleado asignado
+  handoffReason       String?
+  handoffAt           DateTime?
+  
+  // Tags y categorización
+  tags                String[]            @default([])
+  category            String?             // Categoría del User
+  intent              String?             // Intención detectada
+  
+  // Satisfacción y resultado
+  satisfactionRating  Int?                // 1-5
+  outcome             String?             // "converted", "lost", "ongoing"
+  conversionValue     Decimal?            @default(0)
+  
+  // Notas internas
+  internalNotes       String?             @db.Text
+  
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  
+  // Relaciones
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerLead        CustomerLead        @relation(fields: [customerLeadId], references: [id], onDelete: Cascade)
+  whatsappNumber      UserWhatsAppNumber  @relation(fields: [whatsappNumberId], references: [id])
+  currentAgent        UserAIAgent?        @relation(fields: [currentAgentId], references: [id])
+  
+  @@index([userId, status])
+  @@index([customerLeadId])
+  @@index([whatsappNumberId, createdAt])
+  @@index([lastMessageAt])
+  @@map("crm_conversations")
+}
+
+// ============================================================================
+// 7. TAGS PERSONALIZADOS POR USER
+// ============================================================================
+
+model CRMTag {
+  id          String    @id @default(cuid())
+  userId      String    // FK a User
+  
+  name        String    // "VIP", "Urgente", "Seguimiento"
+  color       String    @default("#3b82f6")  // Color hex
+  description String?
+  category    String?   // "lead", "conversation", "general"
+  
+  usageCount  Int       @default(0)
+  isActive    Boolean   @default(true)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relaciones
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, name])
+  @@index([userId, category])
+  @@map("crm_tags")
+}
+
+// ============================================================================
+// 8. MÉTRICAS AGREGADAS POR USER
+// ============================================================================
+
+model CRMMetrics {
+  id                    String    @id @default(cuid())
+  userId                String    // FK a User
+  
+  // Período de la métrica
+  period                String    // "daily", "weekly", "monthly"
+  periodStart           DateTime
+  periodEnd             DateTime
+  
+  // Métricas de conversaciones
+  totalConversations    Int       @default(0)
+  activeConversations   Int       @default(0)
+  newConversations      Int       @default(0)
+  completedConversations Int      @default(0)
+  
+  // Métricas de leads
+  totalLeads            Int       @default(0)
+  newLeads              Int       @default(0)
+  qualifiedLeads        Int       @default(0)
+  convertedLeads        Int       @default(0)
+  
+  // Métricas de agentes
+  totalMessages         Int       @default(0)
+  aiMessages            Int       @default(0)
+  humanMessages         Int       @default(0)
+  avgResponseTime       Float     @default(0)
+  
+  // Métricas de negocio
+  totalRevenue          Decimal   @default(0)
+  avgConversionValue    Decimal   @default(0)
+  satisfactionAvg       Float     @default(0)
+  
+  // Costos
+  totalTokensUsed       Int       @default(0)
+  estimatedAICost       Decimal   @default(0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relaciones
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, period, periodStart])
+  @@index([userId, period])
+  @@map("crm_metrics")
+}
+
+// ============================================================================
+// 9. ENUMS PARA EL CRM
+// ============================================================================
+
+enum CustomerLeadStatus {
+  NEW           // Lead nuevo
+  CONTACTED     // Contactado
+  QUALIFIED     // Calificado  
+  PROPOSAL      // Propuesta enviada
+  NEGOTIATION   // En negociación
+  WON           // Ganado/Convertido
+  LOST          // Perdido
+  ON_HOLD       // En pausa
+}
+
+enum ConversationStatus {
+  ACTIVE        // Conversación activa
+  PAUSED        // Pausada por el cliente
+  WAITING       // Esperando respuesta del cliente
+  COMPLETED     // Finalizada exitosamente
+  ARCHIVED      // Archivada
+  TRANSFERRED   // Transferida a humano
+}
+
+enum ConversationPriority {
+  LOW           // Prioridad baja
+  NORMAL        // Prioridad normal
+  HIGH          // Prioridad alta
+  URGENT        // Urgente
+}
+
+// ============================================================================
+// 10. VISTAS MATERIALIZADAS (Opcional - para performance)
+// ============================================================================
+
+// Vista consolidada para dashboard del User
+/*
+CREATE MATERIALIZED VIEW user_crm_dashboard AS
+SELECT 
+  u.id as userId,
+  u.name as userName,
+  COUNT(DISTINCT cl.id) as totalLeads,
+  COUNT(DISTINCT cc.id) as totalConversations,
+  COUNT(DISTINCT CASE WHEN cc.status = 'ACTIVE' THEN cc.id END) as activeConversations,
+  COUNT(DISTINCT CASE WHEN cl.leadStatus = 'WON' THEN cl.id END) as convertedLeads,
+  AVG(cc.satisfactionRating) as avgSatisfaction,
+  SUM(cc.conversionValue) as totalRevenue
+FROM users u
+LEFT JOIN customer_leads cl ON u.id = cl.userId
+LEFT JOIN crm_conversations cc ON u.id = cc.userId
+WHERE u.crmEnabled = true
+GROUP BY u.id, u.name;
+*/
