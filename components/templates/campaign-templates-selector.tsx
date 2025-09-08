@@ -9,6 +9,7 @@ import {
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AnimatedIcon } from '@/components/ui/animated-icon'
+import { API_URL } from '@/lib/config'
 
 interface Template {
   id: string
@@ -43,7 +44,6 @@ export function CampaignTemplatesSelector({ onSelectTemplate, selectedTemplate }
       const token = localStorage.getItem('token')
       
       // Use the approved endpoint that shows all available templates (user + system)
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
       const response = await fetch(`${API_URL}/api/templates-ai/approved`, {
         headers: {
           'Authorization': `Bearer ${token}`

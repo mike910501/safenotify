@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { getApiUrl } from '@/lib/config'
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -34,7 +35,7 @@ function ResetPasswordContent() {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/reset-password/${token}`)
+        const response = await fetch(getApiUrl(`/api/auth/reset-password/${token}`))
         const data = await response.json()
 
         if (data.success) {
@@ -70,7 +71,7 @@ function ResetPasswordContent() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/reset-password`, {
+      const response = await fetch(getApiUrl('/api/auth/reset-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

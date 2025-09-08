@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 
 interface User {
   id: string
@@ -39,7 +40,6 @@ export function useAuth() {
         return false
       }
 
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
       const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -84,7 +84,6 @@ export function useAuth() {
     setAuthState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -131,7 +130,6 @@ export function useAuth() {
     setAuthState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3005'
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {

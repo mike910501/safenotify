@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { API_URL } from '@/lib/config';
 
 interface CampaignProgress {
   campaignId: string;
@@ -53,7 +54,7 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     }
 
     // Initialize WebSocket connection
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+    const backendUrl = API_URL;
     
     console.log('🔌 Connecting to WebSocket:', backendUrl);
     

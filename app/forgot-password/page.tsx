@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Mail, ArrowLeft, AlertCircle, CheckCircle, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { getApiUrl } from '@/lib/config'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -20,7 +21,7 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/forgot-password`, {
+      const response = await fetch(getApiUrl('/api/auth/forgot-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
