@@ -262,7 +262,7 @@ async function determineUserAgent(userId, messageText, userWhatsApp) {
 async function findOrCreateCRMConversation(userId, customerLeadId, agentId) {
   try {
     // Buscar conversación activa
-    let conversation = await prisma.crmConversation.findFirst({
+    let conversation = await prisma.cRMConversation.findFirst({
       where: {
         userId: userId,
         customerLeadId: customerLeadId,
@@ -272,7 +272,7 @@ async function findOrCreateCRMConversation(userId, customerLeadId, agentId) {
 
     // Crear si no existe
     if (!conversation) {
-      conversation = await prisma.crmConversation.create({
+      conversation = await prisma.cRMConversation.create({
         data: {
           userId: userId,
           customerLeadId: customerLeadId,
@@ -344,7 +344,7 @@ async function generateUserAgentResponse(agent, messageText, customerLead, conve
         { role: 'assistant', content: response.message, timestamp: new Date().toISOString(), agentId: agent.id }
       ];
 
-      await prisma.crmConversation.update({
+      await prisma.cRMConversation.update({
         where: { id: conversation.id },
         data: {
           messages: updatedMessages,

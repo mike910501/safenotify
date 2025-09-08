@@ -72,7 +72,7 @@ class ConversationMetricsService {
       const { start, end } = dateRange;
 
       // Conversaciones del período
-      const conversations = await prisma.crmConversation.findMany({
+      const conversations = await prisma.cRMConversation.findMany({
         where: {
           userId,
           createdAt: {
@@ -213,7 +213,7 @@ class ConversationMetricsService {
     try {
       const { start, end } = dateRange;
 
-      const agentStats = await prisma.crmConversation.groupBy({
+      const agentStats = await prisma.cRMConversation.groupBy({
         by: ['currentAgentId'],
         where: {
           userId,
@@ -317,7 +317,7 @@ class ConversationMetricsService {
     try {
       const { start, end } = dateRange;
 
-      const conversations = await prisma.crmConversation.findMany({
+      const conversations = await prisma.cRMConversation.findMany({
         where: {
           userId,
           createdAt: {
@@ -364,7 +364,7 @@ class ConversationMetricsService {
     try {
       const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      const realtimeStats = await prisma.crmConversation.aggregate({
+      const realtimeStats = await prisma.cRMConversation.aggregate({
         where: {
           userId,
           lastActivity: {
@@ -377,7 +377,7 @@ class ConversationMetricsService {
       });
 
       // Conversaciones activas en este momento
-      const activeNow = await prisma.crmConversation.count({
+      const activeNow = await prisma.cRMConversation.count({
         where: {
           userId,
           status: 'ACTIVE',
@@ -388,7 +388,7 @@ class ConversationMetricsService {
       });
 
       // Conversaciones que necesitan atención
-      const needsAttention = await prisma.crmConversation.count({
+      const needsAttention = await prisma.cRMConversation.count({
         where: {
           userId,
           OR: [

@@ -102,7 +102,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     console.log('🔍 Getting conversation:', id, 'for user:', userId);
 
-    const conversation = await prisma.crmConversation.findFirst({
+    const conversation = await prisma.cRMConversation.findFirst({
       where: {
         id: id,
         userId: userId
@@ -301,7 +301,7 @@ router.get('/:id/metrics', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     // Verificar ownership
-    const conversation = await prisma.crmConversation.findFirst({
+    const conversation = await prisma.cRMConversation.findFirst({
       where: {
         id: id,
         userId: userId
@@ -392,7 +392,7 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
     }
 
     // Verificar ownership y obtener conversación
-    const conversation = await prisma.crmConversation.findFirst({
+    const conversation = await prisma.cRMConversation.findFirst({
       where: {
         id: id,
         userId: userId
@@ -424,7 +424,7 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
     const updatedMessages = [...(conversation.messages || []), newMessage];
 
     // Actualizar conversación
-    const updatedConversation = await prisma.crmConversation.update({
+    const updatedConversation = await prisma.cRMConversation.update({
       where: { id: id },
       data: {
         messages: updatedMessages,
@@ -492,7 +492,7 @@ router.put('/:id/priority', authenticateToken, async (req, res) => {
     }
 
     // Verificar ownership
-    const conversation = await prisma.crmConversation.findFirst({
+    const conversation = await prisma.cRMConversation.findFirst({
       where: {
         id: id,
         userId: userId
@@ -508,7 +508,7 @@ router.put('/:id/priority', authenticateToken, async (req, res) => {
 
     console.log('🔄 Changing conversation priority:', id, 'to:', priority);
 
-    const updatedConversation = await prisma.crmConversation.update({
+    const updatedConversation = await prisma.cRMConversation.update({
       where: { id: id },
       data: {
         priority: priority.toUpperCase(),

@@ -81,7 +81,7 @@ class ConversationManagementService {
       }
 
       // Obtener conversaciones con información relacionada
-      const conversations = await prisma.crmConversation.findMany({
+      const conversations = await prisma.cRMConversation.findMany({
         where: whereClause,
         include: {
           customerLead: {
@@ -124,7 +124,7 @@ class ConversationManagementService {
       });
 
       // Obtener total para paginación
-      const total = await prisma.crmConversation.count({
+      const total = await prisma.cRMConversation.count({
         where: whereClause
       });
 
@@ -174,7 +174,7 @@ class ConversationManagementService {
       const { reason = null, notes = null } = options;
 
       // Verificar ownership
-      const conversation = await prisma.crmConversation.findFirst({
+      const conversation = await prisma.cRMConversation.findFirst({
         where: {
           id: conversationId,
           userId: userId
@@ -189,7 +189,7 @@ class ConversationManagementService {
       }
 
       // Actualizar estado
-      const updatedConversation = await prisma.crmConversation.update({
+      const updatedConversation = await prisma.cRMConversation.update({
         where: { id: conversationId },
         data: {
           status: status.toUpperCase(),
@@ -254,7 +254,7 @@ class ConversationManagementService {
       const { notes = null, notifyUser = true } = options;
 
       // Verificar ownership de la conversación
-      const conversation = await prisma.crmConversation.findFirst({
+      const conversation = await prisma.cRMConversation.findFirst({
         where: {
           id: conversationId,
           userId: assigningUserId // Solo el dueño puede asignar
@@ -287,7 +287,7 @@ class ConversationManagementService {
       }
 
       // Actualizar asignación
-      const updatedConversation = await prisma.crmConversation.update({
+      const updatedConversation = await prisma.cRMConversation.update({
         where: { id: conversationId },
         data: {
           assignedToUserId: assignedUserId,
@@ -356,7 +356,7 @@ class ConversationManagementService {
       const { replace = false, source = 'manual' } = options;
 
       // Verificar ownership
-      const conversation = await prisma.crmConversation.findFirst({
+      const conversation = await prisma.cRMConversation.findFirst({
         where: {
           id: conversationId,
           userId: userId
@@ -391,7 +391,7 @@ class ConversationManagementService {
         [...new Set([...currentTags, ...processedTags])]; // Eliminar duplicados
 
       // Actualizar conversación
-      const updatedConversation = await prisma.crmConversation.update({
+      const updatedConversation = await prisma.cRMConversation.update({
         where: { id: conversationId },
         data: {
           tags: finalTags,
@@ -446,7 +446,7 @@ class ConversationManagementService {
    */
   async getConversationMetrics(conversationId) {
     try {
-      const conversation = await prisma.crmConversation.findUnique({
+      const conversation = await prisma.cRMConversation.findUnique({
         where: { id: conversationId },
         include: { customerLead: true }
       });
@@ -547,7 +547,7 @@ class ConversationManagementService {
           const { type, conversationIds, data } = operation;
 
           // Verificar ownership en lote
-          const conversations = await prisma.crmConversation.findMany({
+          const conversations = await prisma.cRMConversation.findMany({
             where: {
               id: { in: conversationIds },
               userId: userId
@@ -562,7 +562,7 @@ class ConversationManagementService {
 
           switch (type) {
             case 'archive':
-              await prisma.crmConversation.updateMany({
+              await prisma.cRMConversation.updateMany({
                 where: { id: { in: conversationIds } },
                 data: { 
                   status: 'ARCHIVED',
@@ -575,7 +575,7 @@ class ConversationManagementService {
               if (!data.assignedUserId) {
                 throw new Error('assignedUserId es requerido para asignación');
               }
-              await prisma.crmConversation.updateMany({
+              await prisma.cRMConversation.updateMany({
                 where: { id: { in: conversationIds } },
                 data: { 
                   assignedToUserId: data.assignedUserId,
@@ -598,7 +598,7 @@ class ConversationManagementService {
               if (!data.priority) {
                 throw new Error('priority es requerido');
               }
-              await prisma.crmConversation.updateMany({
+              await prisma.cRMConversation.updateMany({
                 where: { id: { in: conversationIds } },
                 data: { priority: data.priority.toUpperCase() }
               });
@@ -731,7 +731,7 @@ class ConversationManagementService {
    */
   async getConversationsSummary(userId) {
     try {
-      const summary = await prisma.crmConversation.groupBy({
+      const summary = await prisma.cRMConversation.groupBy({
         by: ['status'],
         where: { userId },
         _count: { id: true }
@@ -762,7 +762,7 @@ class ConversationManagementService {
       });
 
       // Contar asignadas
-      const assignedCount = await prisma.crmConversation.count({
+      const assignedCount = await prisma.cRMConversation.count({
         where: {
           userId,
           assignedToUserId: { not: null }
@@ -771,7 +771,7 @@ class ConversationManagementService {
       result.assigned = assignedCount;
 
       // Contar que necesitan atención (simplificado)
-      const needsAttentionCount = await prisma.crmConversation.count({
+      const needsAttentionCount = await prisma.cRMConversation.count({
         where: {
           userId,
           OR: [

@@ -168,7 +168,7 @@ async function cleanup() {
         where: { agent: { userId: testUser.id } }
       });
       
-      await prisma.crmConversation.deleteMany({
+      await prisma.cRMConversation.deleteMany({
         where: { userId: testUser.id }
       });
       
@@ -327,7 +327,7 @@ async function testConversationManagement() {
     }
   });
 
-  const testConversation = await prisma.crmConversation.create({
+  const testConversation = await prisma.cRMConversation.create({
     data: {
       userId: testUser.id,
       customerLeadId: testLead.id,

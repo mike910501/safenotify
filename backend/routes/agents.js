@@ -550,7 +550,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     });
 
     if (defaultAgent) {
-      const updatedConversations = await prisma.crmConversation.updateMany({
+      const updatedConversations = await prisma.cRMConversation.updateMany({
         where: {
           userId: req.user.id,
           currentAgentId: id,
