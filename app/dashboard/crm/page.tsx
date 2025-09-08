@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/config'
 import { 
   MessageSquare, 
   Users, 
@@ -65,7 +66,7 @@ export default function CRMDashboard() {
       const token = localStorage.getItem('token')
       
       // Fetch conversations
-      const conversationsResponse = await fetch('/api/conversations', {
+      const conversationsResponse = await fetch(`${API_URL}/api/conversations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
@@ -77,7 +78,7 @@ export default function CRMDashboard() {
       setConversations(conversationsData.data.conversations || [])
       
       // Fetch agents
-      const agentsResponse = await fetch('/api/agents', {
+      const agentsResponse = await fetch(`${API_URL}/api/agents`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       

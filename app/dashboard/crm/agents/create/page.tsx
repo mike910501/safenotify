@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { API_URL } from '@/lib/config'
 import { ArrowLeft, Bot, Save, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -92,7 +93,7 @@ export default function CreateAgentPage() {
   const checkAgentCount = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/agents', {
+      const response = await fetch(`${API_URL}/api/agents`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
@@ -154,7 +155,7 @@ export default function CreateAgentPage() {
       setError('')
       const token = localStorage.getItem('token')
       
-      const response = await fetch('/api/agents', {
+      const response = await fetch(`${API_URL}/api/agents`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

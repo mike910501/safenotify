@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { API_URL } from '@/lib/config'
 import { 
   Bot, 
   Plus, 
@@ -57,7 +58,7 @@ export default function AgentsPage() {
       setLoading(true)
       const token = localStorage.getItem('token')
       
-      const response = await fetch('/api/agents', {
+      const response = await fetch(`${API_URL}/api/agents`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
@@ -80,7 +81,7 @@ export default function AgentsPage() {
       const token = localStorage.getItem('token')
       const agent = agents.find(a => a.id === agentId)
       
-      const response = await fetch(`/api/agents/${agentId}`, {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -106,7 +107,7 @@ export default function AgentsPage() {
     try {
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/agents/${agentId}`, {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })

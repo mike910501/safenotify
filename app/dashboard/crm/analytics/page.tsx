@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { API_URL } from '@/lib/config'
 import { useRouter } from 'next/navigation'
 import { 
   BarChart, 
@@ -74,7 +75,7 @@ export default function AnalyticsDashboard() {
       setError(null)
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/analytics/crm?timeRange=${timeRange}`, {
+      const response = await fetch(`${API_URL}/api/analytics/crm?timeRange=${timeRange}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

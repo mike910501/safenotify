@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { API_URL } from '@/lib/config'
 import { useRouter, useParams } from 'next/navigation'
 import { 
   User, 
@@ -79,7 +80,7 @@ export default function ConversationTakeoverPanel() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/takeover/${conversationId}/status`, {
+      const response = await fetch(`${API_URL}/api/takeover/${conversationId}/status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
@@ -102,7 +103,7 @@ export default function ConversationTakeoverPanel() {
     setRequestingHelp(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/takeover/${conversationId}/suggestions`, {
+      const response = await fetch(`${API_URL}/api/takeover/${conversationId}/suggestions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -130,7 +131,7 @@ export default function ConversationTakeoverPanel() {
     setTakingOver(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/takeover/${conversationId}/start`, {
+      const response = await fetch(`${API_URL}/api/takeover/${conversationId}/start`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -158,7 +159,7 @@ export default function ConversationTakeoverPanel() {
     setEnding(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/takeover/${conversationId}/end`, {
+      const response = await fetch(`${API_URL}/api/takeover/${conversationId}/end`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { API_URL } from '@/lib/config'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -82,7 +83,7 @@ export default function ConversationDetailPage() {
       setLoading(true)
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await fetch(`${API_URL}/api/conversations/${conversationId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
@@ -109,7 +110,7 @@ export default function ConversationDetailPage() {
       setSending(true)
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+      const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -140,7 +141,7 @@ export default function ConversationDetailPage() {
     try {
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await fetch(`${API_URL}/api/conversations/${conversationId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

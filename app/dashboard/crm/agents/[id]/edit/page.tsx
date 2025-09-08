@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { API_URL } from '@/lib/config'
 import { ArrowLeft, Bot, Save, Loader2, Trash2 } from 'lucide-react'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -71,7 +72,7 @@ export default function EditAgentPage() {
       setLoading(true)
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/agents/${agentId}`, {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
@@ -128,7 +129,7 @@ export default function EditAgentPage() {
       setError('')
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/agents/${agentId}`, {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -160,7 +161,7 @@ export default function EditAgentPage() {
       setDeleting(true)
       const token = localStorage.getItem('token')
       
-      const response = await fetch(`/api/agents/${agentId}`, {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
