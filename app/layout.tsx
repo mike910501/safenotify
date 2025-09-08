@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  weight: ["300", "400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "SafeNotify - Notificaciones con Privacidad en Colombia",
@@ -22,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${inter.variable} font-sans antialiased scroll-smooth`}
+        className="font-sans antialiased scroll-smooth"
       >
         <ToastProvider>
           {children}

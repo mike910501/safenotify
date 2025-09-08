@@ -11,9 +11,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Disable font optimization for faster builds
+  optimizeFonts: false,
   // Enable experimental features for better performance
   experimental: {
-    optimizePackageImports: ['@heroicons/react', 'lucide-react'],
+    optimizePackageImports: ['lucide-react'],
   },
 };
 
