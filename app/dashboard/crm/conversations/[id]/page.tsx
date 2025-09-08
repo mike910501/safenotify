@@ -117,8 +117,8 @@ export default function ConversationDetailPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content: newMessage.trim(),
-          role: 'user'
+          message: newMessage.trim(),
+          type: 'human'
         })
       })
       
@@ -361,7 +361,7 @@ export default function ConversationDetailPage() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Escribe un mensaje..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 bg-white"
             disabled={sending || conversation.status === 'ARCHIVED'}
           />
           <button

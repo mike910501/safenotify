@@ -222,11 +222,11 @@ export default function CRMDashboard() {
         
         <div className="flex gap-3">
           <button 
-            onClick={() => window.location.href = '/dashboard/crm/agents/create'}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            onClick={() => router.push('/dashboard/crm/agent-settings')}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
             <Bot className="w-4 h-4" />
-            Nuevo Agente
+            Configurar Agente IA
           </button>
         </div>
       </div>
@@ -394,7 +394,7 @@ export default function CRMDashboard() {
                     {conversation.messageCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(conversation.lastMessageAt).toLocaleDateString()} {new Date(conversation.lastMessageAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {new Date(conversation.lastMessageAt || conversation.lastActivity).toLocaleDateString('es-CO')} {new Date(conversation.lastMessageAt || conversation.lastActivity).toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'})}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
