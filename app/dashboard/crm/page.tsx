@@ -75,7 +75,7 @@ export default function CRMDashboard() {
       }
       
       const conversationsData = await conversationsResponse.json()
-      setConversations(conversationsData.data.conversations || [])
+      setConversations(conversationsData.conversations || [])
       
       // Fetch agents
       const agentsResponse = await fetch(`${API_URL}/api/agents`, {
@@ -87,7 +87,7 @@ export default function CRMDashboard() {
       }
       
       const agentsData = await agentsResponse.json()
-      setAgents(agentsData.data.agents || [])
+      setAgents(agentsData.agents || [])
       
     } catch (err: any) {
       setError(err.message)
