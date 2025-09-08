@@ -281,7 +281,9 @@ async function findOrCreateCRMConversation(userId, customerLeadId, agentId) {
           priority: 'NORMAL',
           messageCount: 0,
           messages: [],
-          tags: []
+          tags: [],
+          sessionId: `whatsapp_${Date.now()}_${fromUser.replace(/[^0-9]/g, '')}`,
+          customerPhone: fromUser
         }
       });
 
