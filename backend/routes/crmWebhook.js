@@ -316,9 +316,12 @@ async function generateUserAgentResponse(agent, messageText, customerLead, conve
       activePrompt.systemPrompt : 
       `${agent.personalityPrompt}\n\n${agent.businessPrompt}\n\n${agent.objectivesPrompt}`;
 
-    // Preparar contexto de conversación
+    // Preparar contexto COMPLETO de conversación
     const conversationHistory = [
-      { role: 'user', content: messageText }
+      // Incluir TODOS los mensajes anteriores de la conversación
+      ...(conversation.messages || []),
+      // Agregar el nuevo mensaje del usuario
+      { role: 'user', content: messageText, timestamp: new Date().toISOString() }
     ];
 
     // Contexto adicional
