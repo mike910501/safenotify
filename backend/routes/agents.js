@@ -127,6 +127,9 @@ router.get('/', authenticateToken, async (req, res) => {
         role: true,
         isActive: true,
         isDefault: true,
+        personalityPrompt: true,
+        businessPrompt: true,
+        objectivesPrompt: true,
         model: true,
         temperature: true,
         maxTokensPerMessage: true,
@@ -582,7 +585,71 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // ============================================================================
-// 5. GET /api/agents/:id/test - PROBAR AGENTE
+// 5. PATCH /api/agents/:id - ACTUALIZAR AGENTE
+// ============================================================================
+
+router.patch('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      personalityPrompt, 
+      businessPrompt, 
+      objectivesPrompt,
+      model,
+      temperature,
+      maxTokensPerMessage
+    } = req.body;
+
+    console.log('🔧 Updating AI agent:', id, 'for user:', req.user.id);
+
+    // Verificar que el agente pertenezca al usuario
+    const agent = await prisma.userAIAgent.findFirst({
+      where: {
+        id,
+        userId: req.user.id
+      }
+    });
+
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        error: 'Agente no encontrado'
+      });
+    }
+
+    // Actualizar agente
+    const updatedAgent = await prisma.userAIAgent.update({
+      where: { id },
+      data: {
+        personalityPrompt: personalityPrompt || agent.personalityPrompt,
+        businessPrompt: businessPrompt || agent.businessPrompt,
+        objectivesPrompt: objectivesPrompt || agent.objectivesPrompt,
+        model: model || agent.model,
+        temperature: temperature !== undefined ? temperature : agent.temperature,
+        maxTokensPerMessage: maxTokensPerMessage || agent.maxTokensPerMessage,
+        updatedAt: new Date()
+      }
+    });
+
+    console.log('✅ Agent updated successfully:', updatedAgent.id);
+
+    res.json({
+      success: true,
+      agent: updatedAgent,
+      message: 'Agente actualizado correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating agent:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error actualizando agente'
+    });
+  }
+});
+
+// ============================================================================
+// 6. GET /api/agents/:id/test - PROBAR AGENTE
 // ============================================================================
 
 router.get('/:id/test', authenticateToken, async (req, res) => {
