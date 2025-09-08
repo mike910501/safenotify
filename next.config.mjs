@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed output: 'export' to support Node.js deployment with dynamic features
+  // Configurado para Node.js deployment - no static export
   trailingSlash: true,
   images: {
     unoptimized: true,
