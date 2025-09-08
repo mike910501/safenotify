@@ -92,7 +92,7 @@ export default function ConversationDetailPage() {
       }
       
       const data = await response.json()
-      setConversation(data.data.conversation)
+      setConversation(data.conversation)
       
     } catch (err: any) {
       setError(err.message)
