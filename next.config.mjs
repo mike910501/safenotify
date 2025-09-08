@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed output: 'export' to support dynamic routes with server-side rendering
+  // Removed output: 'export' to support Node.js deployment with dynamic features
   trailingSlash: true,
   images: {
     unoptimized: true,
