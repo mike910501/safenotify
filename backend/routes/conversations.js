@@ -436,16 +436,22 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
 
     // Enviar mensaje por WhatsApp si es posible
     try {
-      if (conversation.userWhatsAppNumber && conversation.customerPhone) {
-        const twilioService = require('../config/twilio');
+      if (conversation.customerPhone && 
+          process.env.TWILIO_ACCOUNT_SID && 
+          process.env.TWILIO_AUTH_TOKEN && 
+          process.env.TWILIO_WHATSAPP_NUMBER) {
         
-        await twilioService.sendMessage(
-          conversation.customerPhone,
-          message.trim(),
-          conversation.userWhatsAppNumber.phoneNumber
-        );
+        const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        
+        const response = await client.messages.create({
+          from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`, // Usar número de Twilio configurado
+          to: `whatsapp:${conversation.customerPhone}`,
+          body: message.trim()
+        });
 
-        console.log('✅ Manual message sent via WhatsApp');
+        console.log('✅ Manual message sent via WhatsApp:', response.sid);
+      } else {
+        console.log('⚠️ WhatsApp sending skipped - Twilio not configured or missing customer phone');
       }
     } catch (whatsappError) {
       console.error('⚠️ Warning: Could not send via WhatsApp:', whatsappError.message);

@@ -278,6 +278,7 @@ async function findOrCreateCRMConversation(userId, customerLeadId, agentId, cust
           userId: userId,
           customerLeadId: customerLeadId,
           currentAgentId: agentId,
+          whatsappNumberId: userWhatsApp.id, // Conectar con el número WhatsApp del usuario
           status: 'ACTIVE',
           priority: 'NORMAL',
           messageCount: 0,
