@@ -683,8 +683,10 @@ enum CustomerLeadStatus {
 enum ConversationStatus {
   ACTIVE
   PAUSED
+  WAITING
+  COMPLETED
   ARCHIVED
-  CONVERTED
+  TRANSFERRED
 }
 
 enum ConversationPriority {
