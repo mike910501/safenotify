@@ -215,7 +215,10 @@ app.use(cors({
     'http://localhost:3003',
     'http://localhost:3004',
     'http://localhost:3005',
-    // Producción - Render y dominios custom
+    // Producción - SafeNotify dominio principal
+    'https://safenotify.co',
+    'https://www.safenotify.co',
+    // Render y dominios custom
     process.env.FRONTEND_URL,
     // Cualquier subdominio de onrender.com para Render
     /^https:\/\/.*\.onrender\.com$/,
@@ -223,8 +226,8 @@ app.use(cors({
     process.env.PRODUCTION_DOMAIN
   ].filter(Boolean), // Filtra valores undefined/null
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'X-Request-ID']
 }));
 app.use(cookieParser());
 app.use(express.json());
