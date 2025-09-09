@@ -94,9 +94,27 @@ NUNCA:
 /**
  * Generate natural AI response using custom dynamic prompt
  */
-async function generateNaturalResponseWithCustomPrompt(conversationHistory, customPrompt, businessContext, currentIntent) {
+async function generateNaturalResponseWithCustomPrompt(
+  conversationHistory, 
+  customPrompt, 
+  businessContext, 
+  currentIntent,
+  // ✅ ARREGLADO: Agregar parámetros del usuario
+  userModel = null,
+  userTemperature = null,
+  userMaxTokens = null,
+  userReasoningEffort = null,
+  userVerbosity = null
+) {
   try {
     console.log('🤖 Generating AI response with custom prompt...');
+    console.log('👤 User configuration:', {
+      model: userModel,
+      temperature: userTemperature,
+      maxTokens: userMaxTokens,
+      reasoningEffort: userReasoningEffort,
+      verbosity: userVerbosity
+    });
 
     // Prepare conversation history for AI
     const messages = [
@@ -122,12 +140,38 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
       }
     });
 
-    const selectedModel = selectOptimalModel(businessContext, currentIntent);
-    const completion = await openai.chat.completions.create({
-      ...getModelConfig(selectedModel, 'conversation'),
-      messages: messages
-    });
+    // ✅ ARREGLADO: Usar configuración del usuario con fallback automático
+    const selectedModel = userModel || selectOptimalModel(businessContext, currentIntent);
+    const temperature = userTemperature !== null ? userTemperature : 0.7;
+    const maxTokens = userMaxTokens || 500;
+    
+    console.log(`🎯 Using model: ${selectedModel} (user: ${userModel || 'auto'})`);
+    console.log(`🌡️ Using temperature: ${temperature} (user: ${userTemperature !== null ? userTemperature : 'auto'})`);
+    console.log(`📏 Using max tokens: ${maxTokens} (user: ${userMaxTokens || 'auto'})`);
+    
+    // ✅ ARREGLADO: Configuración completa respetando usuario
+    const requestConfig = {
+      model: selectedModel,
+      messages: messages,
+      temperature: temperature,
+      max_tokens: maxTokens
+    };
+    
+    // ✅ Agregar parámetros específicos de GPT-5 si es aplicable
+    if (selectedModel.startsWith('gpt-5')) {
+      if (userReasoningEffort) {
+        requestConfig.reasoning_effort = userReasoningEffort;
+      }
+      if (userVerbosity) {
+        requestConfig.verbosity = userVerbosity;
+      }
+      console.log('🚀 GPT-5 parameters:', {
+        reasoning_effort: requestConfig.reasoning_effort,
+        verbosity: requestConfig.verbosity
+      });
+    }
 
+    const completion = await openai.chat.completions.create(requestConfig);
     const response = completion.choices[0].message.content.trim();
     
     // Enhanced tracking with database persistence and notifications
@@ -143,7 +187,11 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
       success: true,
       leadValueBefore: businessContext?.scoreBefore,
       leadValueAfter: businessContext?.scoreAfter,
-      conversionEvent: businessContext?.conversionEvent
+      conversionEvent: businessContext?.conversionEvent,
+      // ✅ Tracking de parámetros GPT-5
+      reasoningEffort: requestConfig.reasoning_effort,
+      verbosity: requestConfig.verbosity,
+      userConfigured: !!userModel // Flag si el usuario configuró manualmente
     };
     
     await trackGPTUsageEnhanced(trackingData);
@@ -155,7 +203,8 @@ async function generateNaturalResponseWithCustomPrompt(conversationHistory, cust
       message: response,
       tokens_used: completion.usage.total_tokens,
       model_used: selectedModel,
-      customPrompt: true
+      customPrompt: true,
+      userConfigured: !!userModel
     };
 
   } catch (error) {

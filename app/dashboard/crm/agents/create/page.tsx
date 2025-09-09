@@ -16,6 +16,9 @@ interface AgentFormData {
   model: string
   temperature: number
   maxTokensPerMessage: number
+  // ✅ Nuevos campos GPT-5
+  reasoningEffort?: string
+  verbosity?: string
   isActive: boolean
   isDefault: boolean
 }
@@ -29,9 +32,30 @@ const ROLES = [
 ]
 
 const MODELS = [
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Rápido y económico)' },
-  { value: 'gpt-4', label: 'GPT-4 (Mayor calidad)' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (Más rápido)' }
+  { 
+    value: 'gpt-5-mini', 
+    label: 'GPT-5 Mini', 
+    description: '💰 Súper balance entre costo y calidad. Responde natural, con buena coherencia y memoria. Ideal para chatbots de soporte y ventas que manejan mucho volumen.',
+    badge: 'Recomendado'
+  },
+  { 
+    value: 'gpt-5-nano', 
+    label: 'GPT-5 Nano', 
+    description: 'Ultra barato. Perfecto para chatbots de primer contacto o respuestas rápidas frecuentes. Sacrifica un poco de creatividad, pero rinde muy bien en respuestas cortas.',
+    badge: 'Económico'
+  },
+  { 
+    value: 'gpt-5', 
+    label: 'GPT-5 Completo', 
+    description: 'Más potente que GPT-4, a menor costo. Úsalo si tu chatbot debe manejar preguntas complejas o dar asesoría avanzada (ej: banca, salud, legal). Recomendado como "cerebro premium" y combinar con 5-mini para la base.',
+    badge: 'Premium'
+  },
+  { 
+    value: 'gpt-4o-mini', 
+    label: 'GPT-4o Mini', 
+    description: 'Todavía muy útil si buscas un modelo estable, barato y probado. Buen plan B si quieres diversificar y no depender solo de la serie GPT-5.',
+    badge: 'Estable'
+  }
 ]
 
 const ROLE_TEMPLATES = {
@@ -79,9 +103,12 @@ export default function CreateAgentPage() {
     personalityPrompt: ROLE_TEMPLATES.assistant.personality,
     businessPrompt: ROLE_TEMPLATES.assistant.business,
     objectivesPrompt: ROLE_TEMPLATES.assistant.objectives,
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-5-mini', // Default to recommended model
     temperature: 0.7,
     maxTokensPerMessage: 500,
+    // ✅ Valores por defecto GPT-5
+    reasoningEffort: 'medium',
+    verbosity: 'medium',
     isActive: true,
     isDefault: false
   })
@@ -367,21 +394,52 @@ export default function CreateAgentPage() {
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Modelo de IA
               </label>
-              <select
-                value={formData.model}
-                onChange={(e) => handleInputChange('model', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
+              <div className="space-y-3">
                 {MODELS.map((model) => (
-                  <option key={model.value} value={model.value}>
-                    {model.label}
-                  </option>
+                  <div
+                    key={model.value}
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      formData.model === model.value
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => handleInputChange('model', model.value)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="model"
+                            value={model.value}
+                            checked={formData.model === model.value}
+                            onChange={() => handleInputChange('model', model.value)}
+                            className="text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="font-medium text-gray-900">{model.label}</span>
+                          {model.badge && (
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              model.badge === 'Recomendado' ? 'bg-green-100 text-green-800' :
+                              model.badge === 'Económico' ? 'bg-blue-100 text-blue-800' :
+                              model.badge === 'Premium' ? 'bg-purple-100 text-purple-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {model.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2 ml-6">
+                          {model.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </select>
+              </div>
             </div>
             
             <div>
@@ -423,6 +481,48 @@ export default function CreateAgentPage() {
                 Controla qué tan creativo vs preciso será el agente
               </p>
             </div>
+            
+            {/* ✅ Parámetros GPT-5 */}
+            {formData.model.startsWith('gpt-5') && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Esfuerzo de Razonamiento
+                  </label>
+                  <select
+                    value={formData.reasoningEffort}
+                    onChange={(e) => handleInputChange('reasoningEffort', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="minimal">Mínimo - Respuestas rápidas</option>
+                    <option value="low">Bajo - Balance velocidad/calidad</option>
+                    <option value="medium">Medio - Razonamiento estándar</option>
+                    <option value="high">Alto - Análisis profundo</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Controla qué tan profundo razona antes de responder
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Verbosidad
+                  </label>
+                  <select
+                    value={formData.verbosity}
+                    onChange={(e) => handleInputChange('verbosity', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="low">Baja - Respuestas concisas</option>
+                    <option value="medium">Media - Balance longitud</option>
+                    <option value="high">Alta - Explicaciones detalladas</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Controla qué tan detalladas serán las respuestas
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

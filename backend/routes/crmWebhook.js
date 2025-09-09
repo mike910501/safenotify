@@ -333,14 +333,17 @@ async function generateUserAgentResponse(agent, messageText, customerLead, conve
       userId: agent.userId
     };
 
-    // Generar respuesta con OpenAI
+    // ✅ ARREGLADO: Generar respuesta con OpenAI usando configuración del usuario
     const response = await openaiService.generateNaturalResponseWithCustomPrompt(
       conversationHistory,
       systemPrompt,
       context,
-      agent.model || 'gpt-3.5-turbo',
-      agent.temperature || 0.7,
-      agent.maxTokensPerMessage || 500
+      'conversation', // currentIntent
+      agent.model || 'gpt-5-mini', // userModel - now defaults to GPT-5 Mini
+      agent.temperature !== null ? agent.temperature : 0.7, // userTemperature
+      agent.maxTokensPerMessage || 500, // userMaxTokens
+      agent.reasoningEffort || 'medium', // userReasoningEffort for GPT-5
+      agent.verbosity || 'medium' // userVerbosity for GPT-5
     );
 
     if (response.success) {

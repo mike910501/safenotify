@@ -13,53 +13,63 @@ export interface ModelConfig {
 }
 
 export const MODEL_PRICING: Record<string, ModelConfig> = {
+  // ✅ GPT-5 Series - Nuevos modelos disponibles
+  'gpt-5-nano': {
+    input: 0.00005,    // $0.05 por 1M tokens
+    output: 0.0004,    // $0.40 por 1M tokens
+    description: 'Ultra barato. Perfecto para primer contacto y respuestas rápidas',
+    color: '#10B981',  // Verde
+    icon: 'Zap',
+    category: 'economic'
+  },
+  'gpt-5-mini': {
+    input: 0.00025,    // $0.25 por 1M tokens
+    output: 0.002,     // $2.00 por 1M tokens
+    description: 'Súper balance entre costo y calidad. Ideal para soporte y ventas',
+    color: '#3B82F6',  // Azul
+    icon: 'Brain',
+    category: 'optimized'
+  },
+  'gpt-5': {
+    input: 0.001,      // $1.00 por 1M tokens (estimado)
+    output: 0.004,     // $4.00 por 1M tokens (estimado)
+    description: 'Más potente que GPT-4, a menor costo. Para asesoría compleja',
+    color: '#8B5CF6',  // Púrpura
+    icon: 'Crown',
+    category: 'premium'
+  },
+  // ✅ GPT-4 Series - Mantenidos para compatibilidad
   'gpt-4o-mini': {
     input: 0.00015,    // $0.15 por 1M tokens
     output: 0.0006,    // $0.60 por 1M tokens
-    description: 'Balance perfecto costo/calidad',
-    color: '#10B981',  // Verde
-    icon: 'Zap',
+    description: 'Modelo estable y probado. Plan B para diversificar',
+    color: '#F59E0B',  // Amarillo
+    icon: 'Shield',
     category: 'optimized'
   },
   'gpt-4o': {
     input: 0.0025,     // $2.50 por 1M tokens
     output: 0.010,     // $10 por 1M tokens
-    description: 'Potente y multimodal',
-    color: '#3B82F6',  // Azul
-    icon: 'Brain',
+    description: 'GPT-4 multimodal mejorado',
+    color: '#06B6D4',  // Cyan
+    icon: 'Eye',
     category: 'premium'
   },
   'gpt-4': {
     input: 0.03,       // $30 por 1M tokens
     output: 0.06,      // $60 por 1M tokens
-    description: 'Modelo legacy premium',
-    color: '#8B5CF6',  // Púrpura
-    icon: 'Crown',
+    description: 'Modelo legacy premium - Muy costoso',
+    color: '#EF4444',  // Rojo
+    icon: 'AlertTriangle',
     category: 'legacy'
   },
   'gpt-3.5-turbo': {
     input: 0.0005,     // $0.50 por 1M tokens
     output: 0.0015,    // $1.50 por 1M tokens
-    description: 'Rápido y económico',
-    color: '#F59E0B',  // Amarillo
-    icon: 'Lightning',
-    category: 'economic'
-  },
-  'o1-mini': {
-    input: 0.003,      // $3 por 1M tokens
-    output: 0.012,     // $12 por 1M tokens
-    description: 'Optimizado para velocidad',
-    color: '#EF4444',  // Rojo
-    icon: 'Rocket',
-    category: 'optimized'
-  },
-  'gpt-4-turbo': {
-    input: 0.01,       // $10 por 1M tokens
-    output: 0.03,      // $30 por 1M tokens
-    description: 'Balance velocidad/calidad',
-    color: '#06B6D4',  // Cyan
-    icon: 'Gauge',
-    category: 'optimized'
+    description: 'Económico pero limitado - Solo emergencias',
+    color: '#6B7280',  // Gris
+    icon: 'Wrench',
+    category: 'legacy'
   }
 };
 

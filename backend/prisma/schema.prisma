@@ -638,9 +638,13 @@ model GPTUsage {
   conversationId    String?
   
   // Model and usage
-  model             String   // gpt-4o, gpt-3.5-turbo, gpt-4o-mini
+  model             String   // gpt-5, gpt-5-mini, gpt-5-nano, gpt-4o, etc
   tokensUsed        Int
   estimatedCost     Float
+  // ✅ GPT-5 tracking parameters
+  reasoningEffort   String?  // minimal, low, medium, high
+  verbosity         String?  // low, medium, high
+  userConfigured    Boolean? @default(false)  // Was user configuration used?
   
   // Context
   intent            String?  // greeting, demo_request, roi_inquiry, etc
@@ -753,9 +757,12 @@ model UserAIAgent {
   objectivesPrompt    String    // Agent objectives
   
   // AI Configuration
-  model               String    @default("gpt-3.5-turbo")
+  model               String    @default("gpt-5-mini")  // ✅ Updated default to GPT-5
   temperature         Float     @default(0.7)
   maxTokensPerMessage Int       @default(500)
+  // ✅ GPT-5 specific parameters
+  reasoningEffort     String?   @default("medium")      // "minimal", "low", "medium", "high"
+  verbosity           String?   @default("medium")      // "low", "medium", "high"
   responseStyle       Json?     // Custom response styling
   
   // Business rules
