@@ -15,7 +15,8 @@ import {
   User,
   MoreVertical,
   Eye,
-  Archive
+  Archive,
+  BarChart3
 } from 'lucide-react'
 
 interface Conversation {
@@ -221,6 +222,13 @@ export default function CRMDashboard() {
         </div>
         
         <div className="flex gap-3">
+          <button 
+            onClick={() => router.push('/dashboard/crm/analytics')}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Ver Analytics
+          </button>
           <button 
             onClick={() => router.push('/dashboard/crm/agent-settings')}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
