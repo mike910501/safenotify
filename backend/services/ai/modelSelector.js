@@ -13,9 +13,10 @@
  */
 
 const MODELS = {
-  PREMIUM: 'gpt-4o',        // For high-value interactions
-  STANDARD: 'gpt-3.5-turbo', // For normal conversations
-  ECONOMY: 'gpt-4o-mini'     // For simple queries and analysis
+  PREMIUM: 'gpt-5',         // For high-value interactions (most powerful)
+  STANDARD: 'gpt-5-mini',   // For normal conversations (recommended balance)
+  ECONOMY: 'gpt-5-nano',    // For simple queries and analysis (ultra cheap)
+  FALLBACK: 'gpt-4o-mini'   // Fallback if GPT-5 unavailable
 };
 
 /**
@@ -58,29 +59,46 @@ function selectOptimalModel(leadContext, currentIntent) {
 function getModelConfig(model, purpose = 'conversation') {
   const configs = {
     conversation: {
-      max_tokens: 250,
+      tokens: 250,
       temperature: 0.7,
       presence_penalty: 0.1,
       frequency_penalty: 0.1
     },
     analysis: {
-      max_tokens: 100,
+      tokens: 100,
       temperature: 0.1,
       presence_penalty: 0,
       frequency_penalty: 0
     },
     creative: {
-      max_tokens: 300,
+      tokens: 300,
       temperature: 0.9,
       presence_penalty: 0.3,
       frequency_penalty: 0.3
     }
   };
 
-  return {
+  const baseConfig = configs[purpose] || configs.conversation;
+  
+  // ✅ FIXED: Use correct token parameter based on model
+  const modelConfig = {
     model,
-    ...configs[purpose] || configs.conversation
+    temperature: baseConfig.temperature,
+    presence_penalty: baseConfig.presence_penalty,
+    frequency_penalty: baseConfig.frequency_penalty
   };
+  
+  // Use max_completion_tokens for GPT-5 and new models
+  if (model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3')) {
+    modelConfig.max_completion_tokens = baseConfig.tokens;
+    console.log(`📏 Config: Using max_completion_tokens for ${model}: ${baseConfig.tokens}`);
+  } else {
+    // Legacy models use max_tokens
+    modelConfig.max_tokens = baseConfig.tokens;
+    console.log(`📏 Config: Using max_tokens for ${model}: ${baseConfig.tokens}`);
+  }
+  
+  return modelConfig;
 }
 
 /**

@@ -149,16 +149,20 @@ async function generateNaturalResponseWithCustomPrompt(
     console.log(`🌡️ Using temperature: ${temperature} (user: ${userTemperature !== null ? userTemperature : 'auto'})`);
     console.log(`📏 Using max tokens: ${maxTokens} (user: ${userMaxTokens || 'auto'})`);
     
-    // ✅ ARREGLADO: Configuración completa respetando usuario
+    // ✅ ARREGLADO: Configuración completa respetando usuario y modelo
     const requestConfig = {
       model: selectedModel,
       messages: messages,
-      temperature: temperature,
-      max_tokens: maxTokens
+      temperature: temperature
     };
     
-    // ✅ Agregar parámetros específicos de GPT-5 si es aplicable
-    if (selectedModel.startsWith('gpt-5')) {
+    // ✅ FIXED: Use correct token parameter based on model
+    if (selectedModel.startsWith('gpt-5') || selectedModel.startsWith('o1') || selectedModel.startsWith('o3')) {
+      // New models use max_completion_tokens
+      requestConfig.max_completion_tokens = maxTokens;
+      console.log(`📏 Using max_completion_tokens for ${selectedModel}: ${maxTokens}`);
+      
+      // Add GPT-5 specific parameters
       if (userReasoningEffort) {
         requestConfig.reasoning_effort = userReasoningEffort;
       }
@@ -167,8 +171,13 @@ async function generateNaturalResponseWithCustomPrompt(
       }
       console.log('🚀 GPT-5 parameters:', {
         reasoning_effort: requestConfig.reasoning_effort,
-        verbosity: requestConfig.verbosity
+        verbosity: requestConfig.verbosity,
+        max_completion_tokens: requestConfig.max_completion_tokens
       });
+    } else {
+      // Legacy models use max_tokens
+      requestConfig.max_tokens = maxTokens;
+      console.log(`📏 Using max_tokens for ${selectedModel}: ${maxTokens}`);
     }
 
     const completion = await openai.chat.completions.create(requestConfig);
