@@ -634,14 +634,14 @@ router.get('/crm', verifyToken, async (req, res) => {
       return data;
     };
 
-    const daysCount = timeRange === '24h' ? 1 : 
+    const trendDays = timeRange === '24h' ? 1 : 
                     timeRange === '7d' ? 7 :
                     timeRange === '30d' ? 30 : 90;
 
     const trends = {
-      conversations: generateTrendData(daysCount, 20, 10),
-      responseTime: generateTrendData(daysCount, 15, 6),
-      satisfaction: generateTrendData(daysCount, 4.2, 0.8).map(item => ({
+      conversations: generateTrendData(trendDays, 20, 10),
+      responseTime: generateTrendData(trendDays, 15, 6),
+      satisfaction: generateTrendData(trendDays, 4.2, 0.8).map(item => ({
         date: item.date,
         score: Math.min(5, Math.max(3, item.count))
       }))
