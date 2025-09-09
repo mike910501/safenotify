@@ -83,10 +83,19 @@ function getModelConfig(model, purpose = 'conversation') {
   // ✅ FIXED: Use correct token parameter based on model
   const modelConfig = {
     model,
-    temperature: baseConfig.temperature,
     presence_penalty: baseConfig.presence_penalty,
     frequency_penalty: baseConfig.frequency_penalty
   };
+  
+  // ✅ GPT-5 TEMPERATURE FIX: Solo gpt-5 completo soporta temperature
+  if (model === 'gpt-5-mini' || model === 'gpt-5-nano') {
+    // GPT-5 nano/mini NO soportan temperature custom (usan defecto = 1.0)
+    console.log(`🌡️ Config: Model ${model} uses default temperature (no custom temperature)`);
+  } else {
+    // GPT-5 completo y modelos legacy sí soportan temperature
+    modelConfig.temperature = baseConfig.temperature;
+    console.log(`🌡️ Config: Model ${model} using temperature: ${baseConfig.temperature}`);
+  }
   
   // Use max_completion_tokens for GPT-5 and new models
   if (model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3')) {

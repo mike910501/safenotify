@@ -218,24 +218,34 @@ export default function AnalyticsDashboard() {
         ],
         modelMetrics: [
           {
-            name: 'gpt-4o-mini',
-            totalTokens: 85000,
-            usageCount: 106,
-            estimatedCost: 0.051,
-            usagePercentage: '68',
-            avgTokensPerUse: 802,
-            costPerUse: 0.00048,
-            lastUsed: '2024-01-07'
+            name: 'gpt-5-mini',
+            totalTokens: 95000,
+            usageCount: 118,
+            estimatedCost: 0.238,
+            usagePercentage: '64',
+            avgTokensPerUse: 805,
+            costPerUse: 0.00202,
+            lastUsed: '2025-01-09'
           },
           {
-            name: 'gpt-3.5-turbo',
-            totalTokens: 40000,
-            usageCount: 50,
-            estimatedCost: 0.02,
-            usagePercentage: '32',
-            avgTokensPerUse: 800,
-            costPerUse: 0.0004,
-            lastUsed: '2024-01-07'
+            name: 'gpt-5-nano',
+            totalTokens: 42000,
+            usageCount: 67,
+            estimatedCost: 0.019,
+            usagePercentage: '28',
+            avgTokensPerUse: 627,
+            costPerUse: 0.00028,
+            lastUsed: '2025-01-09'
+          },
+          {
+            name: 'gpt-5',
+            totalTokens: 18000,
+            usageCount: 12,
+            estimatedCost: 0.145,
+            usagePercentage: '8',
+            avgTokensPerUse: 1500,
+            costPerUse: 0.01208,
+            lastUsed: '2025-01-08'
           }
         ],
         modelTimelineTrends: [
@@ -248,10 +258,10 @@ export default function AnalyticsDashboard() {
           { date: '2024-01-07', total: 19000 }
         ],
         costBreakdown: {
-          totalCost: 2.45,
-          mostExpensiveModel: 'gpt-4o-mini',
-          mostUsedModel: 'gpt-4o-mini',
-          modelCount: 2
+          totalCost: 0.402,
+          mostExpensiveModel: 'gpt-5',
+          mostUsedModel: 'gpt-5-mini',
+          modelCount: 3
         }
       })
     } finally {

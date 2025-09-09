@@ -142,19 +142,37 @@ async function generateNaturalResponseWithCustomPrompt(
 
     // ✅ ARREGLADO: Usar configuración del usuario con fallback automático
     const selectedModel = userModel || selectOptimalModel(businessContext, currentIntent);
-    const temperature = userTemperature !== null ? userTemperature : 0.7;
     const maxTokens = userMaxTokens || 500;
     
+    // ✅ GPT-5 TEMPERATURE FIX: Solo gpt-5 completo soporta temperature custom
+    let finalTemperature;
+    if (selectedModel === 'gpt-5-mini' || selectedModel === 'gpt-5-nano') {
+      // GPT-5 nano/mini NO soportan temperature custom (siempre = 1.0 por defecto)
+      finalTemperature = undefined; // No enviamos temperature para que use su defecto
+      console.log(`🌡️ Model ${selectedModel} uses default temperature (1.0) - custom temperature not supported`);
+    } else if (selectedModel === 'gpt-5') {
+      // GPT-5 completo SÍ soporta temperature custom
+      finalTemperature = userTemperature !== null ? userTemperature : 0.7;
+      console.log(`🌡️ Model ${selectedModel} using temperature: ${finalTemperature} (user: ${userTemperature !== null ? userTemperature : 'auto'})`);
+    } else {
+      // Modelos legacy (gpt-4o-mini, etc.) soportan temperature
+      finalTemperature = userTemperature !== null ? userTemperature : 0.7;
+      console.log(`🌡️ Legacy model ${selectedModel} using temperature: ${finalTemperature}`);
+    }
+    
     console.log(`🎯 Using model: ${selectedModel} (user: ${userModel || 'auto'})`);
-    console.log(`🌡️ Using temperature: ${temperature} (user: ${userTemperature !== null ? userTemperature : 'auto'})`);
     console.log(`📏 Using max tokens: ${maxTokens} (user: ${userMaxTokens || 'auto'})`);
     
     // ✅ ARREGLADO: Configuración completa respetando usuario y modelo
     const requestConfig = {
       model: selectedModel,
-      messages: messages,
-      temperature: temperature
+      messages: messages
     };
+    
+    // Solo agregar temperature si el modelo lo soporta
+    if (finalTemperature !== undefined) {
+      requestConfig.temperature = finalTemperature;
+    }
     
     // ✅ FIXED: Use correct token parameter based on model
     if (selectedModel.startsWith('gpt-5') || selectedModel.startsWith('o1') || selectedModel.startsWith('o3')) {
