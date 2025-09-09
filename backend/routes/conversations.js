@@ -437,21 +437,33 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
     // Enviar mensaje por WhatsApp si es posible
     try {
       if (conversation.customerPhone && 
+          conversation.userWhatsAppNumber &&
           process.env.TWILIO_ACCOUNT_SID && 
-          process.env.TWILIO_AUTH_TOKEN && 
-          process.env.TWILIO_WHATSAPP_NUMBER) {
+          process.env.TWILIO_AUTH_TOKEN) {
         
         const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
         
+        // IMPORTANTE: Usar el MISMO número que recibió el mensaje original
+        // Este número está almacenado en conversation.userWhatsAppNumber
+        const fromNumber = conversation.userWhatsAppNumber.phoneNumber;
+        
+        console.log('📱 Sending manual WhatsApp response:');
+        console.log('   From (same as received):', fromNumber);
+        console.log('   To (customer):', conversation.customerPhone);
+        console.log('   WhatsApp Number ID:', conversation.userWhatsAppNumber.id);
+        
         const response = await client.messages.create({
-          from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`, // Usar número de Twilio configurado
+          from: `whatsapp:${fromNumber}`,
           to: `whatsapp:${conversation.customerPhone}`,
           body: message.trim()
         });
 
         console.log('✅ Manual message sent via WhatsApp:', response.sid);
       } else {
-        console.log('⚠️ WhatsApp sending skipped - Twilio not configured or missing customer phone');
+        console.log('⚠️ WhatsApp sending skipped - Missing required data:');
+        console.log('   Customer phone:', conversation.customerPhone ? '✓' : '✗');
+        console.log('   WhatsApp number:', conversation.userWhatsAppNumber ? '✓' : '✗');
+        console.log('   Twilio configured:', (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) ? '✓' : '✗');
       }
     } catch (whatsappError) {
       console.error('⚠️ Warning: Could not send via WhatsApp:', whatsappError.message);
