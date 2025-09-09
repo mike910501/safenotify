@@ -2573,17 +2573,36 @@ server.listen(PORT, async () => {
     console.error('❌ Failed to initialize Scheduler Service:', error);
   }
   
-  // Check if templates exist
-  try {
-    const templateCount = await prisma.template.count();
-    console.log(`📊 Templates in database: ${templateCount}`);
-    
-    if (templateCount === 0) {
-      console.log('⚠️ No templates found. Consider running seed script.');
+  // Check if templates exist - with DB connection retry
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  const checkDatabase = async () => {
+    try {
+      console.log('🔍 Checking database connection...');
+      await prisma.$connect();
+      console.log('✅ Database connected successfully');
+      
+      const templateCount = await prisma.template.count();
+      console.log(`📊 Templates in database: ${templateCount}`);
+      
+      if (templateCount === 0) {
+        console.log('⚠️ No templates found. Consider running seed script.');
+      }
+    } catch (error) {
+      retryCount++;
+      console.error(`❌ Database check failed (attempt ${retryCount}/${maxRetries}):`, error.message);
+      
+      if (retryCount < maxRetries) {
+        console.log(`⏳ Retrying in 5 seconds...`);
+        setTimeout(checkDatabase, 5000);
+      } else {
+        console.log('⚠️ Database connection failed after multiple attempts. Server will continue but some features may not work.');
+      }
     }
-  } catch (error) {
-    console.error('Error checking templates:', error.message);
-  }
+  };
+  
+  checkDatabase();
 });
 
 // Graceful shutdown
