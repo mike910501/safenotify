@@ -382,7 +382,7 @@ router.get('/export', verifyToken, async (req, res) => {
   }
 });
 
-// 🚀 CRM Analytics Endpoint - Phase 4
+// 🚀 CRM Analytics Endpoint - Enhanced with Model Metrics
 router.get('/crm', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -406,6 +406,9 @@ router.get('/crm', verifyToken, async (req, res) => {
         break;
       case '90d':
         dateFilter.gte = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case 'all':
+        dateFilter.gte = new Date('2024-01-01');
         break;
       default:
         dateFilter.gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -471,6 +474,121 @@ router.get('/crm', verifyToken, async (req, res) => {
         totalMessages += conv.messages.length;
       }
     });
+
+    // Get GPT Usage metrics for detailed model analysis
+    const gptUsageMetrics = await prisma.gPTUsage.findMany({
+      where: {
+        createdAt: dateFilter
+      },
+      select: {
+        model: true,
+        tokensUsed: true,
+        phone: true,
+        leadId: true,
+        createdAt: true
+      }
+    });
+
+    // Calculate model-specific metrics
+    const modelMetrics = {};
+    let totalTokens = 0;
+    let totalEstimatedCost = 0;
+
+    gptUsageMetrics.forEach(usage => {
+      const model = usage.model || 'unknown';
+      totalTokens += usage.tokensUsed || 0;
+      
+      if (!modelMetrics[model]) {
+        modelMetrics[model] = {
+          name: model,
+          totalTokens: 0,
+          usageCount: 0,
+          estimatedCost: 0,
+          lastUsed: usage.createdAt
+        };
+      }
+      
+      modelMetrics[model].totalTokens += usage.tokensUsed || 0;
+      modelMetrics[model].usageCount += 1;
+      
+      // Calculate estimated cost (assuming input/output split 70/30)
+      const inputTokens = (usage.tokensUsed || 0) * 0.7;
+      const outputTokens = (usage.tokensUsed || 0) * 0.3;
+      
+      // Simple pricing model (will be enhanced with real pricing)
+      let inputPrice = 0.001, outputPrice = 0.002; // Default
+      
+      switch (model) {
+        case 'gpt-4o-mini':
+          inputPrice = 0.00015; outputPrice = 0.0006;
+          break;
+        case 'gpt-4o':
+          inputPrice = 0.0025; outputPrice = 0.010;
+          break;
+        case 'gpt-4':
+          inputPrice = 0.03; outputPrice = 0.06;
+          break;
+        case 'gpt-3.5-turbo':
+          inputPrice = 0.0005; outputPrice = 0.0015;
+          break;
+        case 'o1-mini':
+          inputPrice = 0.003; outputPrice = 0.012;
+          break;
+        case 'gpt-4-turbo':
+          inputPrice = 0.01; outputPrice = 0.03;
+          break;
+      }
+      
+      const usageCost = (inputTokens / 1000) * inputPrice + (outputTokens / 1000) * outputPrice;
+      modelMetrics[model].estimatedCost += usageCost;
+      totalEstimatedCost += usageCost;
+      
+      if (usage.createdAt > modelMetrics[model].lastUsed) {
+        modelMetrics[model].lastUsed = usage.createdAt;
+      }
+    });
+
+    // Convert to array and add percentages
+    const modelMetricsArray = Object.values(modelMetrics).map(model => ({
+      ...model,
+      usagePercentage: totalTokens > 0 ? ((model.totalTokens / totalTokens) * 100).toFixed(1) : 0,
+      avgTokensPerUse: model.usageCount > 0 ? Math.round(model.totalTokens / model.usageCount) : 0,
+      costPerUse: model.usageCount > 0 ? model.estimatedCost / model.usageCount : 0
+    })).sort((a, b) => b.totalTokens - a.totalTokens);
+
+    // Generate daily usage trends for models
+    const dailyModelUsage = {};
+    const daysCount = timeRange === '24h' ? 1 : 
+                     timeRange === '7d' ? 7 :
+                     timeRange === '30d' ? 30 : 
+                     timeRange === '90d' ? 90 : 30;
+
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      dailyModelUsage[dateStr] = {
+        date: dateStr,
+        total: 0
+      };
+      
+      // Initialize each model for this day
+      Object.keys(modelMetrics).forEach(model => {
+        dailyModelUsage[dateStr][model] = 0;
+      });
+    }
+
+    // Fill in actual usage data
+    gptUsageMetrics.forEach(usage => {
+      const dateStr = new Date(usage.createdAt).toISOString().split('T')[0];
+      if (dailyModelUsage[dateStr]) {
+        const model = usage.model || 'unknown';
+        dailyModelUsage[dateStr][model] += usage.tokensUsed || 0;
+        dailyModelUsage[dateStr].total += usage.tokensUsed || 0;
+      }
+    });
+
+    const timelineTrends = Object.values(dailyModelUsage);
 
     // 2. Agent Performance
     const agentStats = await prisma.userAIAgent.findMany({
@@ -548,11 +666,25 @@ router.get('/crm', verifyToken, async (req, res) => {
           conversionRate: parseFloat(conversionRate),
           totalMessages,
           totalLeads,
-          convertedLeads
+          convertedLeads,
+          // New AI metrics
+          totalTokens,
+          totalEstimatedCost,
+          avgCostPerConversation: totalConversations > 0 ? totalEstimatedCost / totalConversations : 0,
+          avgTokensPerConversation: totalConversations > 0 ? totalTokens / totalConversations : 0
         },
         trends,
         agents,
         topPerformers,
+        // New model-specific data
+        modelMetrics: modelMetricsArray,
+        modelTimelineTrends: timelineTrends,
+        costBreakdown: {
+          totalCost: totalEstimatedCost,
+          mostExpensiveModel: modelMetricsArray[0]?.name || null,
+          mostUsedModel: modelMetricsArray[0]?.name || null,
+          modelCount: Object.keys(modelMetrics).length
+        },
         timeRange,
         generatedAt: now.toISOString()
       }
