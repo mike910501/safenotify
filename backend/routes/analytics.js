@@ -388,13 +388,8 @@ router.get('/crm', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { timeRange = '7d' } = req.query;
     
-    // Check if user has CRM enabled
-    if (!req.user.crmEnabled) {
-      return res.status(403).json({
-        success: false,
-        error: 'CRM not enabled for this user'
-      });
-    }
+    // CRM is now available for all users with proper plan
+    // No need to check crmEnabled as it's handled by plan limits
 
     let dateFilter = {};
     const now = new Date();

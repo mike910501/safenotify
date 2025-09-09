@@ -62,7 +62,8 @@ export default function AnalyticsDashboard() {
 
   // Check CRM access
   useEffect(() => {
-    if (user && !user.crmEnabled) {
+    // Solo redirigir si estamos seguros de que el usuario no tiene CRM
+    if (user && user.crmEnabled === false) {
       router.push('/dashboard')
       return
     }
@@ -167,7 +168,7 @@ export default function AnalyticsDashboard() {
   }
 
   useEffect(() => {
-    if (user && user.crmEnabled) {
+    if (user) {
       fetchAnalytics()
     }
   }, [user, timeRange])
