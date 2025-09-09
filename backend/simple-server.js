@@ -8,20 +8,40 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 
-// Import routes and services
-const paymentRoutes = require('./routes/payments');
-const adminRoutes = require('./routes/admin');
-const templatesAIRoutes = require('./routes/templatesAI');
-const campaignProgressRoutes = require('./routes/campaignProgress');
-const scheduledCampaignsRoutes = require('./routes/scheduledCampaigns');
-const blacklistRoutes = require('./routes/blacklist');
-const analyticsRoutes = require('./routes/analytics');
-const agentRoutes = require('./routes/agents'); // 🚀 NEW: AI Agents CRM
-const conversationRoutes = require('./routes/conversations'); // 💬 NEW: Conversation Management
-const crmWebhookRoutes = require('./routes/crmWebhook'); // 📞 NEW: CRM WhatsApp Webhook
-const humanTakeoverRoutes = require('./routes/humanTakeover'); // 🙋‍♂️ PHASE 5.1: Human Takeover
-const schedulerService = require('./services/schedulerService');
-const blacklistService = require('./services/blacklistService');
+console.log('✅ Basic modules loaded');
+
+// Import routes and services with error handling
+let paymentRoutes, adminRoutes, templatesAIRoutes, campaignProgressRoutes;
+let scheduledCampaignsRoutes, blacklistRoutes, analyticsRoutes;
+let agentRoutes, conversationRoutes, crmWebhookRoutes, humanTakeoverRoutes;
+let schedulerService, blacklistService;
+
+try {
+  paymentRoutes = require('./routes/payments');
+  adminRoutes = require('./routes/admin');
+  templatesAIRoutes = require('./routes/templatesAI');
+  campaignProgressRoutes = require('./routes/campaignProgress');
+  scheduledCampaignsRoutes = require('./routes/scheduledCampaigns');
+  blacklistRoutes = require('./routes/blacklist');
+  console.log('✅ Basic routes loaded');
+  
+  analyticsRoutes = require('./routes/analytics');
+  agentRoutes = require('./routes/agents');
+  conversationRoutes = require('./routes/conversations');
+  console.log('✅ CRM routes loaded');
+  
+  crmWebhookRoutes = require('./routes/crmWebhook');
+  humanTakeoverRoutes = require('./routes/humanTakeover');
+  console.log('✅ Webhook routes loaded');
+  
+  schedulerService = require('./services/schedulerService');
+  blacklistService = require('./services/blacklistService');
+  console.log('✅ Services loaded');
+} catch (error) {
+  console.error('❌ FATAL: Error loading modules:', error.message);
+  console.error('❌ Stack:', error.stack);
+  process.exit(1);
+}
 
 // Import WebSocket and Queue systems
 let CampaignProgressTracker;
