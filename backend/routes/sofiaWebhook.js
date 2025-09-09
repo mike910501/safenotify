@@ -426,13 +426,12 @@ async function findAgentByKeyword(messageBody, whatsappNumber) {
     // Get organization ID from WhatsApp number (simplified for now)
     const organizationId = 'default'; // TODO: Map WhatsApp number to organization
     
-    const agents = await prisma.cRMAIAgent.findMany({
+    const agents = await prisma.userAIAgent.findMany({
       where: {
-        organizationId,
-        isActive: true,
-        triggerConditions: {
-          not: {}
-        }
+        isActive: true
+      },
+      include: {
+        user: true
       }
     });
 

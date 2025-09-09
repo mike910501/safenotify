@@ -215,10 +215,10 @@ async function processProspectMessage(phoneNumber, messageText, messageSid = nul
     };
     console.log('🎯 Using Sofia (SafeNotify internal sales agent)');
 
-    // Update conversation with Sofia as current agent
+    // Update conversation step (Sofia manages SafeNotify sales)
     await prisma.safeNotifyConversation.update({
       where: { id: conversation.id },
-      data: { currentAgent: 'Sofia' }
+      data: { currentStep: 'sofia_handling' }
     });
 
     // Check if we need to generate/update dynamic prompt
