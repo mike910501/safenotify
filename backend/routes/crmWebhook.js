@@ -90,8 +90,17 @@ router.post('/user-crm',
       );
 
       // 6. Enviar respuesta desde número del User
+      console.log('📤 Response to send:', {
+        success: response.success,
+        hasMessage: !!response.message,
+        messageLength: response.message?.length || 0
+      });
+      
       if (response.success && response.message) {
+        console.log('📱 Sending WhatsApp message to:', fromUser);
         await sendWhatsAppMessage(fromUser, response.message, toWhatsAppNumber);
+      } else {
+        console.log('⚠️ Not sending WhatsApp - Response:', response);
       }
 
       // 7. Registrar métricas del User
