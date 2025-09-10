@@ -326,13 +326,30 @@ async function generateUserAgentResponse(agent, messageText, customerLead, conve
       activePrompt.systemPrompt : 
       `${agent.personalityPrompt}\n\n${agent.businessPrompt}\n\n${agent.objectivesPrompt}`;
 
-    // Preparar contexto COMPLETO de conversación
+    // ✅ SMART CONTEXT: Límite inteligente de historial para evitar overflow
+    const allMessages = conversation.messages || [];
+    const MAX_HISTORY_MESSAGES = 20; // Últimos 20 mensajes (10 intercambios)
+    
+    let recentMessages = [];
+    if (allMessages.length > MAX_HISTORY_MESSAGES) {
+      // Mantener los primeros 2 mensajes (contexto inicial) + últimos 18
+      const firstMessages = allMessages.slice(0, 2);
+      const recentMessageSlice = allMessages.slice(-18);
+      recentMessages = [...firstMessages, ...recentMessageSlice];
+      
+      console.log(`📝 Conversation truncated: ${allMessages.length} -> ${recentMessages.length} messages`);
+    } else {
+      recentMessages = allMessages;
+    }
+    
     const conversationHistory = [
-      // Incluir TODOS los mensajes anteriores de la conversación
-      ...(conversation.messages || []),
+      // Incluir mensajes recientes (truncados inteligentemente)
+      ...recentMessages,
       // Agregar el nuevo mensaje del usuario
       { role: 'user', content: messageText, timestamp: new Date().toISOString() }
     ];
+    
+    console.log(`📊 Context size: ${conversationHistory.length} messages (was ${allMessages.length + 1})`);
 
     // Contexto adicional
     const context = {

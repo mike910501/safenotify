@@ -198,20 +198,38 @@ async function generateNaturalResponseWithCustomPrompt(
       console.log(`📏 Using max_tokens for ${selectedModel}: ${maxTokens}`);
     }
 
+    console.log('🔍 DEBUGGING GPT REQUEST:', {
+      model: selectedModel,
+      messageCount: messages.length,
+      lastUserMessage: messages[messages.length - 1]?.content?.substring(0, 100),
+      systemPrompt: messages[0]?.content?.substring(0, 200)
+    });
+    
     const completion = await openai.chat.completions.create(requestConfig);
-    const rawContent = completion.choices[0].message.content;
-    console.log('🤖 GPT raw response:', {
+    const rawContent = completion.choices[0]?.message?.content;
+    
+    console.log('🤖 GPT RESPONSE DEBUG:', {
       hasContent: !!rawContent,
       length: rawContent?.length || 0,
-      first50: rawContent?.substring(0, 50) || 'EMPTY'
+      first100: rawContent?.substring(0, 100) || 'EMPTY',
+      finishReason: completion.choices[0]?.finish_reason,
+      usage: completion.usage
     });
     
     let response = rawContent?.trim() || '';
     
-    // ✅ FALLBACK: Si GPT-5 retorna vacío, generar respuesta por defecto
+    // ❌ CRITICAL ERROR: GPT retorna vacío - INVESTIGAR
     if (!response || response.length < 2) {
-      console.log('⚠️ GPT returned empty/short response, using fallback');
-      response = '¡Hola! 👋 Gracias por tu mensaje. ¿En qué puedo ayudarte con SafeNotify hoy? ¿Te gustaría conocer cómo podemos automatizar las comunicaciones de tu negocio?';
+      console.error('❌ CRITICAL: GPT-5 returned empty response!');
+      console.error('   Message count:', messages.length);
+      console.error('   Model:', selectedModel);
+      console.error('   Last user message:', messages[messages.length - 1]?.content);
+      console.error('   Finish reason:', completion.choices[0]?.finish_reason);
+      console.error('   Usage:', completion.usage);
+      
+      // Fallback temporal para no romper mientras investigamos
+      response = '🤔 Disculpa, necesito procesar mejor tu mensaje. ¿Podrías reformularlo o darme más contexto?';
+      console.log('⚠️ Using temporary fallback while investigating empty responses');
     }
     
     // Enhanced tracking with database persistence and notifications
