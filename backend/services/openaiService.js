@@ -199,7 +199,20 @@ async function generateNaturalResponseWithCustomPrompt(
     }
 
     const completion = await openai.chat.completions.create(requestConfig);
-    const response = completion.choices[0].message.content.trim();
+    const rawContent = completion.choices[0].message.content;
+    console.log('🤖 GPT raw response:', {
+      hasContent: !!rawContent,
+      length: rawContent?.length || 0,
+      first50: rawContent?.substring(0, 50) || 'EMPTY'
+    });
+    
+    let response = rawContent?.trim() || '';
+    
+    // ✅ FALLBACK: Si GPT-5 retorna vacío, generar respuesta por defecto
+    if (!response || response.length < 2) {
+      console.log('⚠️ GPT returned empty/short response, using fallback');
+      response = '¡Hola! 👋 Gracias por tu mensaje. ¿En qué puedo ayudarte con SafeNotify hoy? ¿Te gustaría conocer cómo podemos automatizar las comunicaciones de tu negocio?';
+    }
     
     // Enhanced tracking with database persistence and notifications
     const trackingData = {
