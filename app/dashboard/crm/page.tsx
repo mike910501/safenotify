@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { API_URL } from '@/lib/config'
+import ConversationCard from '@/components/crm/ConversationCard'
 import { 
   MessageSquare, 
   Users, 
@@ -16,7 +17,10 @@ import {
   MoreVertical,
   Eye,
   Archive,
-  BarChart3
+  BarChart3,
+  Flame,
+  Thermometer,
+  Snowflake
 } from 'lucide-react'
 
 interface Conversation {
@@ -54,6 +58,7 @@ export default function CRMDashboard() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [scoreFilter, setScoreFilter] = useState<string>('ALL')
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
 
   // Fetch data
@@ -103,8 +108,75 @@ export default function CRMDashboard() {
                          conv.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          conv.sessionId.includes(searchTerm)
     const matchesStatus = statusFilter === 'ALL' || conv.status === statusFilter
-    return matchesSearch && matchesStatus
+    
+    // Score filter logic
+    let matchesScore = true;
+    if (scoreFilter === 'HOT') {
+      matchesScore = (conv as any).qualificationScore >= 70;
+    } else if (scoreFilter === 'WARM') {
+      matchesScore = (conv as any).qualificationScore >= 40 && (conv as any).qualificationScore < 70;
+    } else if (scoreFilter === 'COLD') {
+      matchesScore = (conv as any).qualificationScore < 40;
+    }
+    
+    return matchesSearch && matchesStatus && matchesScore
   })
+
+  // Get score counts for filter pills
+  const getScoreCounts = () => {
+    const total = conversations.length;
+    const hot = conversations.filter(conv => (conv as any).qualificationScore >= 70).length;
+    const warm = conversations.filter(conv => (conv as any).qualificationScore >= 40 && (conv as any).qualificationScore < 70).length;
+    const cold = conversations.filter(conv => (conv as any).qualificationScore < 40).length;
+    return { total, hot, warm, cold };
+  };
+
+  const scoreCounts = getScoreCounts();
+
+  // Handle card actions
+  const handleViewConversation = (conversationId: string) => {
+    router.push(`/dashboard/crm/conversations/${conversationId}`);
+  };
+
+  const handleArchiveConversation = async (conversationId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/conversations/${conversationId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'ARCHIVED' })
+      });
+      
+      // Refresh conversations
+      fetchData();
+    } catch (error) {
+      console.error('Error archiving conversation:', error);
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta conversación? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Refresh conversations
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    }
+  };
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -286,169 +358,167 @@ export default function CRMDashboard() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por teléfono, nombre o ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
+      {/* New Header with Filters */}
+      <div className="bg-white border-b sticky top-0 z-10 rounded-lg shadow-sm border">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">
+              CRM WhatsApp
+            </h2>
+            
+            {/* Filter Pills */}
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setScoreFilter('ALL')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  scoreFilter === 'ALL' 
+                    ? 'bg-gray-900 text-white' 
+                    : 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                Todas ({scoreCounts.total})
+              </button>
+              <button 
+                onClick={() => setScoreFilter('HOT')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1 ${
+                  scoreFilter === 'HOT' 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-white border border-gray-200 hover:bg-red-50 text-gray-700'
+                }`}
+              >
+                <Flame className="w-4 h-4" />
+                Hot ({scoreCounts.hot})
+              </button>
+              <button 
+                onClick={() => setScoreFilter('WARM')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1 ${
+                  scoreFilter === 'WARM' 
+                    ? 'bg-yellow-500 text-white' 
+                    : 'bg-white border border-gray-200 hover:bg-yellow-50 text-gray-700'
+                }`}
+              >
+                <Thermometer className="w-4 h-4" />
+                Warm ({scoreCounts.warm})
+              </button>
+              <button 
+                onClick={() => setScoreFilter('COLD')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1 ${
+                  scoreFilter === 'COLD' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-white border border-gray-200 hover:bg-blue-50 text-gray-700'
+                }`}
+              >
+                <Snowflake className="w-4 h-4" />
+                Cold ({scoreCounts.cold})
+              </button>
+            </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="ALL">Todos los estados</option>
-              <option value="ACTIVE">Activo</option>
-              <option value="WAITING">Esperando</option>
-              <option value="PAUSED">Pausado</option>
-              <option value="COMPLETED">Completado</option>
-              <option value="TRANSFERRED">Transferido</option>
-              <option value="ARCHIVED">Archivado</option>
-            </select>
+          {/* Search Bar */}
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, teléfono o mensaje..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 
+                  focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                <option value="ALL">Todos los estados</option>
+                <option value="ACTIVE">Activo</option>
+                <option value="WAITING">Esperando</option>
+                <option value="PAUSED">Pausado</option>
+                <option value="COMPLETED">Completado</option>
+                <option value="TRANSFERRED">Transferido</option>
+                <option value="ARCHIVED">Archivado</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Conversations Table */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Conversaciones ({filteredConversations.length})
-          </h2>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Prioridad
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Agente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mensajes
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Última Actividad
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredConversations.map((conversation) => (
-                <tr 
-                  key={conversation.id}
-                  className={`hover:bg-gray-50 cursor-pointer ${
-                    conversation.requiresAttention ? 'bg-orange-50 border-l-4 border-orange-500' : ''
-                  }`}
-                  onClick={() => router.push(`/dashboard/crm/conversations/${conversation.id}`)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                          <User className="w-5 h-5 text-gray-600" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {conversation.customerName || 'Cliente'}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {conversation.customerPhone}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(conversation.status)}`}>
-                      {conversation.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-medium ${getPriorityColor(conversation.priority)}`}>
-                      {conversation.priority}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Bot className="w-4 h-4 text-purple-600 mr-2" />
-                      <span className="text-sm text-gray-900">
-                        {conversation.currentAgent?.name || 'Sin asignar'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {conversation.messageCount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(conversation.lastMessageAt || conversation.lastActivity).toLocaleDateString('es-CO')} {new Date(conversation.lastMessageAt || conversation.lastActivity).toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'})}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="text-blue-600 hover:text-blue-800">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <Archive className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredConversations.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              {searchTerm || statusFilter !== 'ALL' 
-                ? 'No se encontraron conversaciones' 
-                : 'No hay conversaciones'}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
-              {searchTerm || statusFilter !== 'ALL' 
-                ? 'No se encontraron conversaciones con los filtros aplicados. Intenta ajustar tus criterios de búsqueda.' 
-                : 'Las conversaciones aparecerán aquí cuando los clientes escriban a tus números de WhatsApp configurados.'}
-            </p>
-            {!(searchTerm || statusFilter !== 'ALL') && (
-              <div className="mt-6">
-                <button
-                  onClick={() => router.push('/dashboard/crm/setup')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 transition-colors"
-                >
-                  Configurar WhatsApp
-                </button>
+      {/* Grid de Conversaciones Cards */}
+      <div className="min-h-screen bg-gray-50">
+        {filteredConversations.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+            {filteredConversations.map((conversation, index) => (
+              <div 
+                key={conversation.id}
+                className="animate-slideIn"
+                style={{ 
+                  animationDelay: `${Math.min(index * 0.05, 0.5)}s`,
+                  animationFillMode: 'both'
+                }}
+              >
+                <ConversationCard
+                  conversation={{
+                    ...conversation,
+                    customerLead: {
+                      name: conversation.customerName,
+                      phone: conversation.customerPhone,
+                      email: ''
+                    },
+                    lastActivity: conversation.lastMessageAt || conversation.lastActivity,
+                    qualificationScore: Math.floor(Math.random() * 100), // Placeholder until real data
+                    unreadCount: conversation.requiresAttention ? Math.floor(Math.random() * 5) + 1 : 0,
+                    lastMessage: 'Último mensaje de la conversación...',
+                    isTyping: false
+                  }}
+                  onView={handleViewConversation}
+                  onArchive={handleArchiveConversation}
+                  onDelete={handleDeleteConversation}
+                />
               </div>
-            )}
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center min-h-96">
+            <div className="text-center">
+              <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                {searchTerm || statusFilter !== 'ALL' || scoreFilter !== 'ALL'
+                  ? 'No se encontraron conversaciones' 
+                  : 'No hay conversaciones'}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                {searchTerm || statusFilter !== 'ALL' || scoreFilter !== 'ALL'
+                  ? 'No se encontraron conversaciones con los filtros aplicados. Intenta ajustar tus criterios de búsqueda.' 
+                  : 'Las conversaciones aparecerán aquí cuando los clientes escriban a tus números de WhatsApp configurados.'}
+              </p>
+              {!(searchTerm || statusFilter !== 'ALL' || scoreFilter !== 'ALL') && (
+                <div className="mt-6">
+                  <button
+                    onClick={() => router.push('/dashboard/crm/agent-settings')}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors"
+                  >
+                    <Bot className="w-4 h-4 mr-2" />
+                    Configurar Agente IA
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Floating Action Button */}
+      <button 
+        onClick={() => router.push('/dashboard/crm/agent-settings')}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center hover:scale-105 transform"
+        title="Configurar Agente IA"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   )
 }

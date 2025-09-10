@@ -78,7 +78,8 @@ router.post('/user-crm',
         userWhatsApp.userId,
         customerLead.id,
         agent.id,
-        fromUser
+        fromUser,
+        userWhatsApp
       );
 
       // 5. Generar respuesta con personalidad del User
@@ -269,7 +270,7 @@ async function determineUserAgent(userId, messageText, userWhatsApp) {
 /**
  * 4. Crear/actualizar conversación CRM
  */
-async function findOrCreateCRMConversation(userId, customerLeadId, agentId, customerPhone) {
+async function findOrCreateCRMConversation(userId, customerLeadId, agentId, customerPhone, userWhatsApp) {
   try {
     // Buscar conversación activa
     let conversation = await prisma.cRMConversation.findFirst({
