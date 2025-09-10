@@ -26,6 +26,8 @@ export function Sidebar({ userName = 'Usuario', userEmail = 'usuario@empresa.com
     { name: 'Enviar Mensajes', href: '/dashboard/send', icon: Send },
     { name: 'Template Studio', href: '/dashboard/templates', icon: FileText, isTemplateStudio: true },
     { name: 'CRM WhatsApp', href: '/dashboard/crm', icon: MessageSquare, isCRM: true },
+    { name: 'Panel MCP', href: '/dashboard/crm/mcp', icon: Bot, isMCP: true },
+    { name: 'Clientes MCP', href: '/dashboard/crm/customers', icon: User, isCustomers: true },
     { name: 'CRM Analytics', href: '/dashboard/crm/analytics', icon: BarChart3, isCRMAnalytics: true },
     { name: 'Historial', href: '/dashboard/history', icon: Clock },
     { name: 'Planes y Precios', href: '/dashboard/upgrade', icon: CreditCard },
