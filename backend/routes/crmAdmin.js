@@ -7,7 +7,7 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // Aplicar autenticación a todas las rutas
-// router.use(authenticateApiKey); // Comentado temporalmente para testing
+router.use(authenticateApiKey);
 
 /**
  * 📊 GET /api/crm/customers - Listar todos los clientes
