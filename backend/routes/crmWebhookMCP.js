@@ -1,31 +1,33 @@
+// ============================================================================
+// 🚀 CRM Webhook with MCP Function Calling Integration
+// ============================================================================
+// Versión enhanced del webhook que usa MCP Function Calling
+
 const express = require('express');
 const twilio = require('twilio');
 const { PrismaClient } = require('@prisma/client');
-const openaiService = require('../services/openaiService');
 const mcpIntegrationService = require('../services/mcpIntegrationService');
-const buttonExecutorService = require('../services/buttonExecutorService');
 const logger = require('../config/logger');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 /**
- * 🔄 User CRM WhatsApp Webhook
- * Route: POST /api/webhooks/user-crm
- * Purpose: Handle incoming WhatsApp messages for User CRM system
+ * 🚀 User CRM WhatsApp Webhook with MCP Function Calling
+ * Route: POST /api/webhooks/user-crm-mcp
+ * Purpose: Handle incoming WhatsApp messages with MCP capabilities
  * 
- * Routing Logic:
- * 1. Identificar User propietario del número WhatsApp
- * 2. Encontrar/crear CustomerLead para ese User
- * 3. Determinar agente IA del User
- * 4. Generar respuesta con personalidad del User
- * 5. Responder desde número del User
+ * Enhanced Features:
+ * 1. Function Calling para send_multimedia, save_data, etc.
+ * 2. Análisis inteligente de intenciones
+ * 3. Seguimientos automáticos
+ * 4. Manejo de multimedia mejorado
  */
-router.post('/user-crm',
+router.post('/user-crm-mcp',
   express.urlencoded({ extended: false }),
   async (req, res) => {
     try {
-      console.log('📞 User CRM Webhook triggered');
+      console.log('🚀 User CRM MCP Webhook triggered');
       
       const {
         From,        // Número del cliente (whatsapp:+573001234567)
@@ -37,22 +39,14 @@ router.post('/user-crm',
         MediaUrl0,
         MediaContentType0
       } = req.body;
-      
-      // Detectar si es una respuesta de botón interactivo
-      const { ButtonPayload, ButtonText } = req.body;
-      const isInteractiveResponse = ButtonPayload || ButtonText;
 
       // Log incoming message (privacy-compliant)
-      console.log('📨 Incoming User CRM message:');
+      console.log('📨 Incoming MCP message:');
       console.log('  From:', From?.substring(0, 12) + '***');
       console.log('  To:', To);
       console.log('  Message:', Body?.substring(0, 50) + '...');
+      console.log('  Media:', NumMedia > 0 ? `${NumMedia} file(s)` : 'No media');
       console.log('  SID:', MessageSid);
-      console.log('  Interactive:', isInteractiveResponse ? 'Yes' : 'No');
-      if (isInteractiveResponse) {
-        console.log('  Button Payload:', ButtonPayload);
-        console.log('  Button Text:', ButtonText);
-      }
 
       // Extract clean phone numbers
       const fromUser = From?.replace('whatsapp:', '');
@@ -84,19 +78,7 @@ router.post('/user-crm',
         return res.status(200).send('OK');
       }
 
-      // 4. Procesar multimedia si existe
-      let mediaInfo = null;
-      if (NumMedia && parseInt(NumMedia) > 0) {
-        mediaInfo = {
-          mediaCount: parseInt(NumMedia),
-          mediaUrl: MediaUrl0,
-          mediaType: MediaContentType0,
-          messageWithMedia: true
-        };
-        console.log('📎 Media detected:', mediaInfo);
-      }
-
-      // 5. Crear/actualizar conversación CRM
+      // 4. Crear/actualizar conversación CRM
       const conversation = await findOrCreateCRMConversation(
         userWhatsApp.userId,
         customerLead.id,
@@ -105,100 +87,229 @@ router.post('/user-crm',
         userWhatsApp
       );
 
-      // 6. Procesar respuesta de botón interactivo si aplica
-      let response;
-      if (isInteractiveResponse && ButtonPayload) {
-        console.log('🎯 Processing interactive button response');
-        
-        try {
-          const buttonData = JSON.parse(ButtonPayload);
-          const context = {
-            conversationId: conversation.id,
-            userId: userWhatsApp.userId,
-            customerLeadId: customerLead.id,
-            agentId: agent.id,
-            customerPhone: fromUser,
-            whatsappNumber: toWhatsAppNumber,
-            metadata: conversation.metadata || {}
-          };
-          
-          const buttonResponse = await buttonExecutorService.executeButtonAction(
-            buttonData.buttonId || ButtonText,
-            buttonData,
-            context
-          );
-          
-          if (buttonResponse.success && buttonResponse.response) {
-            response = {
-              success: true,
-              message: buttonResponse.response,
-              mcpEnabled: false,
-              toolsUsed: ['button_executor'],
-              functionCalls: 1,
-              interactiveAction: buttonResponse.action
-            };
-          } else {
-            // Fallback a respuesta normal si el botón falla
-            console.log('⚠️ Button execution failed, falling back to normal response');
-            response = await generateUserAgentResponse(
-              agent,
-              Body || ButtonText || 'Botón presionado',
-              customerLead,
-              conversation,
-              mediaInfo
-            );
-          }
-        } catch (error) {
-          console.error('❌ Error processing interactive button:', error);
-          response = await generateUserAgentResponse(
-            agent,
-            Body || ButtonText || 'Botón presionado',
-            customerLead,
-            conversation,
-            mediaInfo
-          );
-        }
-      } else {
-        // 6. Generar respuesta con personalidad del User (MCP Enhanced)
-        response = await generateUserAgentResponse(
-          agent,
-          Body,
-          customerLead,
-          conversation,
-          mediaInfo
+      // 5. ✅ NUEVO: Procesar multimedia si existe
+      let mediaAnalysis = null;
+      if (NumMedia > 0 && MediaUrl0) {
+        console.log('📎 Processing multimedia:', MediaContentType0);
+        mediaAnalysis = await processIncomingMedia(
+          MediaUrl0,
+          MediaContentType0,
+          conversation.id
         );
       }
 
+      // 6. ✅ GENERAR RESPUESTA CON MCP FUNCTION CALLING
+      const response = await generateMCPResponse(
+        agent,
+        Body,
+        customerLead,
+        conversation,
+        userWhatsApp,
+        mediaAnalysis
+      );
+
       // 7. Enviar respuesta desde número del User
-      console.log('📤 Response to send:', {
+      console.log('📤 MCP Response to send:', {
         success: response.success,
         hasMessage: !!response.message,
-        messageLength: response.message?.length || 0
+        messageLength: response.message?.length || 0,
+        mcpEnabled: response.mcpEnabled,
+        toolsUsed: response.toolsUsed?.length || 0
       });
       
       if (response.success && response.message) {
         console.log('📱 Sending WhatsApp message to:', fromUser);
         await sendWhatsAppMessage(fromUser, response.message, toWhatsAppNumber);
+        
+        // ✅ Log adicional si se usaron herramientas MCP
+        if (response.toolsUsed && response.toolsUsed.length > 0) {
+          console.log('🛠️ MCP Tools used:', response.toolsUsed);
+        }
       } else {
         console.log('⚠️ Not sending WhatsApp - Response:', response);
       }
 
-      // 8. Registrar métricas del User
+      // 8. Registrar métricas del User (incluyendo MCP metrics)
       await updateUserCRMMetrics(userWhatsApp.userId, {
         messageReceived: true,
         messageSent: response.success,
         agentId: agent.id,
-        interactiveMessage: isInteractiveResponse
+        mcpEnabled: response.mcpEnabled,
+        functionsUsed: response.toolsUsed?.length || 0
       });
 
       res.status(200).send('OK');
 
     } catch (error) {
-      console.error('❌ Error in User CRM webhook:', error);
+      console.error('❌ Error in User CRM MCP webhook:', error);
       res.status(200).send('OK'); // Always respond OK to Twilio
     }
   }
 );
+
+/**
+ * ✅ NUEVA FUNCIÓN: Generar respuesta usando MCP Function Calling
+ */
+async function generateMCPResponse(agent, messageText, customerLead, conversation, userWhatsApp, mediaAnalysis) {
+  try {
+    // Obtener prompt activo del agente
+    const activePrompt = await prisma.userAgentPrompt.findFirst({
+      where: {
+        agentId: agent.id,
+        isActive: true
+      },
+      orderBy: { version: 'desc' }
+    });
+
+    const systemPrompt = activePrompt ? 
+      activePrompt.systemPrompt : 
+      `${agent.personalityPrompt}\n\n${agent.businessPrompt}\n\n${agent.objectivesPrompt}`;
+
+    // ✅ SMART CONTEXT: Límite inteligente de historial
+    const allMessages = conversation.messages || [];
+    const MAX_HISTORY_MESSAGES = 20;
+    
+    let recentMessages = [];
+    if (allMessages.length > MAX_HISTORY_MESSAGES) {
+      const firstMessages = allMessages.slice(0, 2);
+      const recentMessageSlice = allMessages.slice(-18);
+      recentMessages = [...firstMessages, ...recentMessageSlice];
+      
+      console.log(`📝 Conversation truncated: ${allMessages.length} -> ${recentMessages.length} messages`);
+    } else {
+      recentMessages = allMessages;
+    }
+    
+    // ✅ NUEVO: Agregar contexto de multimedia si existe
+    let enhancedMessageText = messageText;
+    if (mediaAnalysis) {
+      enhancedMessageText = `${messageText}\n\n[ARCHIVO RECIBIDO: ${mediaAnalysis.type} - ${mediaAnalysis.description || 'Archivo multimedia'}]`;
+    }
+    
+    const conversationHistory = [
+      ...recentMessages,
+      { role: 'user', content: enhancedMessageText, timestamp: new Date().toISOString() }
+    ];
+    
+    console.log(`📊 MCP Context size: ${conversationHistory.length} messages`);
+
+    // Contexto adicional para MCP
+    const businessContext = {
+      leadId: customerLead.id,
+      phone: customerLead.phone,
+      agentId: agent.id,
+      userId: agent.userId,
+      whatsappNumber: userWhatsApp.phoneNumber,
+      hasMultimedia: !!mediaAnalysis
+    };
+
+    // ✅ USAR MCP INTEGRATION SERVICE en lugar de openaiService
+    console.log('🚀 Using MCP Function Calling for response generation');
+    
+    const response = await mcpIntegrationService.generateResponseWithMCP(
+      conversationHistory,
+      systemPrompt,
+      businessContext,
+      'conversation',
+      agent,
+      customerLead,
+      conversation
+    );
+
+    // ✅ Actualizar conversación con mensajes y resultados MCP
+    if (response.success) {
+      const newMessages = [
+        ...(conversation.messages || []),
+        { 
+          role: 'user', 
+          content: enhancedMessageText, 
+          timestamp: new Date().toISOString(),
+          mediaAnalysis: mediaAnalysis || undefined
+        },
+        { 
+          role: 'assistant', 
+          content: response.message, 
+          timestamp: new Date().toISOString(), 
+          agentId: agent.id,
+          mcpEnabled: response.mcpEnabled,
+          toolsUsed: response.toolsUsed || [],
+          functionCalls: response.functionCalls || 0
+        }
+      ];
+
+      await prisma.cRMConversation.update({
+        where: { id: conversation.id },
+        data: {
+          messages: newMessages,
+          messageCount: { increment: 2 }, // User + Assistant
+          lastActivity: new Date(),
+          metadata: {
+            ...(conversation.metadata || {}),
+            lastMCPResponse: {
+              mcpEnabled: response.mcpEnabled,
+              toolsUsed: response.toolsUsed,
+              functionCalls: response.functionCalls,
+              timestamp: new Date().toISOString()
+            }
+          }
+        }
+      });
+
+      console.log('✅ MCP response generated and saved');
+    }
+
+    return response;
+  } catch (error) {
+    console.error('❌ Error generating MCP response:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      message: '🤔 Disculpa, necesito procesar mejor tu mensaje. ¿Podrías reformularlo?'
+    };
+  }
+}
+
+/**
+ * ✅ NUEVA FUNCIÓN: Procesar multimedia entrante
+ */
+async function processIncomingMedia(mediaUrl, mediaType, conversationId) {
+  try {
+    console.log('📎 Processing incoming media:', mediaType);
+    
+    // Aquí se podría integrar con Claude Vision API o similar
+    // Por ahora, extraer información básica del tipo de archivo
+    
+    const mediaAnalysis = {
+      url: mediaUrl,
+      type: mediaType,
+      timestamp: new Date().toISOString(),
+      description: getMediaDescription(mediaType)
+    };
+    
+    // TODO: Guardar en MediaFile table cuando esté implementada
+    console.log('📊 Media analysis:', mediaAnalysis);
+    
+    return mediaAnalysis;
+  } catch (error) {
+    console.error('❌ Error processing media:', error);
+    return null;
+  }
+}
+
+/**
+ * Helper para describir tipos de media
+ */
+function getMediaDescription(mediaType) {
+  if (mediaType?.startsWith('image/')) return 'Imagen';
+  if (mediaType?.startsWith('audio/')) return 'Audio';
+  if (mediaType?.startsWith('video/')) return 'Video';  
+  if (mediaType?.includes('pdf')) return 'Documento PDF';
+  return 'Archivo multimedia';
+}
+
+// ============================================================================
+// FUNCIONES AUXILIARES (REUTILIZADAS del webhook original)
+// ============================================================================
 
 /**
  * 1. Identificar User propietario del número WhatsApp
@@ -368,18 +479,23 @@ async function findOrCreateCRMConversation(userId, customerLeadId, agentId, cust
           userId: userId,
           customerLeadId: customerLeadId,
           currentAgentId: agentId,
-          whatsappNumberId: userWhatsApp.id, // Conectar con el número WhatsApp del usuario
+          whatsappNumberId: userWhatsApp.id,
           status: 'ACTIVE',
           priority: 'NORMAL',
           messageCount: 0,
           messages: [],
           tags: [],
           sessionId: `whatsapp_${Date.now()}_${customerPhone.replace(/[^0-9]/g, '')}`,
-          customerPhone: customerPhone
+          customerPhone: customerPhone,
+          metadata: {
+            mcpEnabled: true,
+            createdWithMCP: true,
+            version: '2.0'
+          }
         }
       });
 
-      console.log('✅ New CRM conversation created:', conversation.id);
+      console.log('✅ New MCP-enabled CRM conversation created:', conversation.id);
     }
 
     return conversation;
@@ -390,116 +506,7 @@ async function findOrCreateCRMConversation(userId, customerLeadId, agentId, cust
 }
 
 /**
- * 6. Generar respuesta con personalidad del User (MCP Enhanced)
- */
-async function generateUserAgentResponse(agent, messageText, customerLead, conversation, mediaInfo = null) {
-  try {
-    // Obtener prompt activo del agente
-    const activePrompt = await prisma.userAgentPrompt.findFirst({
-      where: {
-        agentId: agent.id,
-        isActive: true
-      },
-      orderBy: { version: 'desc' }
-    });
-
-    const systemPrompt = activePrompt ? 
-      activePrompt.systemPrompt : 
-      `${agent.personalityPrompt}\n\n${agent.businessPrompt}\n\n${agent.objectivesPrompt}`;
-
-    // ✅ SMART CONTEXT: Límite inteligente de historial para evitar overflow
-    const allMessages = conversation.messages || [];
-    const MAX_HISTORY_MESSAGES = 20; // Últimos 20 mensajes (10 intercambios)
-    
-    let recentMessages = [];
-    if (allMessages.length > MAX_HISTORY_MESSAGES) {
-      // Mantener los primeros 2 mensajes (contexto inicial) + últimos 18
-      const firstMessages = allMessages.slice(0, 2);
-      const recentMessageSlice = allMessages.slice(-18);
-      recentMessages = [...firstMessages, ...recentMessageSlice];
-      
-      console.log(`📝 Conversation truncated: ${allMessages.length} -> ${recentMessages.length} messages`);
-    } else {
-      recentMessages = allMessages;
-    }
-    
-    const conversationHistory = [
-      // Incluir mensajes recientes (truncados inteligentemente)
-      ...recentMessages,
-      // Agregar el nuevo mensaje del usuario
-      { role: 'user', content: messageText, timestamp: new Date().toISOString() }
-    ];
-    
-    console.log(`📊 Context size: ${conversationHistory.length} messages (was ${allMessages.length + 1})`);
-
-    // Contexto adicional con multimedia
-    const context = {
-      leadId: customerLead.id,
-      phone: customerLead.phone,
-      agentId: agent.id,
-      userId: agent.userId,
-      whatsappNumber: conversation.userWhatsAppNumber?.phoneNumber || conversation.customerPhone
-    };
-
-    // Contexto de multimedia si existe
-    if (mediaInfo) {
-      context.hasMedia = true;
-      context.mediaType = mediaInfo.mediaType;
-      context.mediaUrl = mediaInfo.mediaUrl;
-      
-      // Agregar información de multimedia al último mensaje
-      const lastMessage = conversationHistory[conversationHistory.length - 1];
-      if (lastMessage && lastMessage.role === 'user') {
-        lastMessage.content += `\n\n[MULTIMEDIA RECIBIDO: ${mediaInfo.mediaType}, URL: ${mediaInfo.mediaUrl}]`;
-      }
-    }
-
-    // ✅ MCP ENHANCED: Generar respuesta con Function Calling capabilities
-    console.log('🚀 Using MCP Integration Service for enhanced AI capabilities');
-    
-    const response = await mcpIntegrationService.generateResponseWithMCP(
-      conversationHistory,
-      systemPrompt,
-      context,
-      'conversation', // currentIntent
-      agent,
-      customerLead,
-      conversation
-    );
-
-    if (response.success) {
-      // Actualizar conversación con mensajes
-      const updatedMessages = [
-        ...(conversation.messages || []),
-        { role: 'user', content: messageText, timestamp: new Date().toISOString() },
-        { role: 'assistant', content: response.message, timestamp: new Date().toISOString(), agentId: agent.id }
-      ];
-
-      await prisma.cRMConversation.update({
-        where: { id: conversation.id },
-        data: {
-          messages: updatedMessages,
-          messageCount: { increment: 2 }, // User + Assistant
-          lastActivity: new Date()
-        }
-      });
-
-      console.log('✅ MCP Enhanced response generated:', {
-        mcpEnabled: response.mcpEnabled,
-        toolsUsed: response.toolsUsed,
-        functionCalls: response.functionCalls
-      });
-    }
-
-    return response;
-  } catch (error) {
-    console.error('❌ Error generating user agent response:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * 7. Enviar respuesta desde número del User
+ * 6. Enviar respuesta desde número del User
  */
 async function sendWhatsAppMessage(toNumber, message, fromNumber) {
   try {
@@ -520,7 +527,7 @@ async function sendWhatsAppMessage(toNumber, message, fromNumber) {
 }
 
 /**
- * 8. Registrar métricas del User
+ * 7. Registrar métricas del User (con métricas MCP)
  */
 async function updateUserCRMMetrics(userId, metrics) {
   try {
@@ -554,10 +561,14 @@ async function updateUserCRMMetrics(userId, metrics) {
       });
     }
 
-    // Actualizar métricas
+    // ✅ Actualizar métricas incluyendo MCP
     const updateData = {};
     if (metrics.messageReceived) updateData.totalMessages = { increment: 1 };
     if (metrics.messageSent) updateData.totalMessages = { increment: 1 };
+
+    // ✅ Métricas MCP adicionales (agregar a modelo cuando esté disponible)
+    // if (metrics.mcpEnabled) updateData.mcpMessagesProcessed = { increment: 1 };
+    // if (metrics.functionsUsed > 0) updateData.functionCallsExecuted = { increment: metrics.functionsUsed };
 
     if (Object.keys(updateData).length > 0) {
       await prisma.cRMMetrics.update({
@@ -566,7 +577,7 @@ async function updateUserCRMMetrics(userId, metrics) {
       });
     }
 
-    console.log('✅ User CRM metrics updated');
+    console.log('✅ User CRM metrics updated (with MCP data)');
   } catch (error) {
     console.error('❌ Error updating User CRM metrics:', error);
   }

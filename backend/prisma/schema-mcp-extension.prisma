@@ -1,0 +1,231 @@
+// ============================================================================
+// 🚀 MCP FUNCTION CALLING EXTENSION MODELS
+// ============================================================================
+// Agregar al final de schema.prisma para soporte de Function Calling MCP
+
+// Media Files per User (para send_multimedia function)
+model UserMediaFile {
+  id              String    @id @default(cuid())
+  userId          String    // FK to User (SafeNotify client)
+  
+  // File info
+  fileName        String
+  originalName    String
+  fileUrl         String    // Cloudinary/S3/Local URL
+  mediaType       String    // menu, catalogue, document, image, price_list, location
+  mimeType        String?   // image/png, application/pdf, etc
+  fileSize        Int?      // Size in bytes
+  
+  // Metadata
+  description     String?   // User description
+  purpose         String?   // Business purpose of the file
+  isActive        Boolean   @default(true)
+  
+  // Usage tracking
+  usageCount      Int       @default(0)
+  lastUsedAt      DateTime?
+  
+  // Relations
+  user            User      @relation("UserMediaFiles", fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("user_media_files")
+  @@index([userId])
+  @@index([userId, mediaType])
+  @@index([userId, isActive])
+}
+
+// Conversation Records (para save_conversation_data function)
+model ConversationRecord {
+  id                String              @id @default(cuid())
+  conversationId    String              // FK to CRMConversation
+  userId            String              // FK to User
+  customerLeadId    String              // FK to CustomerLead
+  
+  // Record info
+  recordType        String              // order, appointment, inquiry, lead, complaint, feedback
+  data              Json                // Structured data saved by AI
+  followUpRequired  Boolean             @default(false)
+  
+  // Metadata
+  customerPhone     String
+  createdBy         String              // 'ai_agent', 'human', 'system'
+  agentId           String?             // FK to UserAIAgent if created by AI
+  
+  // Relations
+  conversation      CRMConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user              User                @relation("UserConversationRecords", fields: [userId], references: [id], onDelete: Cascade)
+  customerLead      CustomerLead        @relation("LeadConversationRecords", fields: [customerLeadId], references: [id], onDelete: Cascade)
+  agent             UserAIAgent?        @relation("AgentConversationRecords", fields: [agentId], references: [id], onDelete: SetNull)
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("conversation_records")
+  @@index([conversationId])
+  @@index([userId])
+  @@index([customerLeadId])
+  @@index([recordType])
+  @@index([createdBy])
+}
+
+// Follow-up Tasks (para schedule_follow_up function)
+model FollowUpTask {
+  id              String              @id @default(cuid())
+  conversationId  String              // FK to CRMConversation
+  userId          String              // FK to User
+  customerLeadId  String              // FK to CustomerLead
+  
+  // Task info
+  taskType        String              // reminder, check_in, offer, survey, appointment_confirm
+  message         String              // Message to send
+  priority        String              @default("normal") // low, normal, high
+  
+  // Scheduling
+  scheduledAt     DateTime            // When to execute
+  executedAt      DateTime?           // When it was actually executed
+  status          String              @default("PENDING") // PENDING, EXECUTED, CANCELLED, FAILED
+  
+  // Results
+  executionResult Json?               // Results of execution
+  errorMessage    String?             // Error if failed
+  
+  // Metadata
+  createdBy       String              // 'ai_agent', 'human', 'system'  
+  agentId         String?             // FK to UserAIAgent if created by AI
+  
+  // Relations
+  conversation    CRMConversation     @relation("ConversationFollowUps", fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User                @relation("UserFollowUpTasks", fields: [userId], references: [id], onDelete: Cascade)
+  customerLead    CustomerLead        @relation("LeadFollowUpTasks", fields: [customerLeadId], references: [id], onDelete: Cascade)
+  agent           UserAIAgent?        @relation("AgentFollowUpTasks", fields: [agentId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@map("follow_up_tasks")
+  @@index([conversationId])
+  @@index([userId])
+  @@index([customerLeadId])
+  @@index([taskType])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([priority])
+}
+
+// Function Call Logs (para debugging y analytics)
+model FunctionCallLog {
+  id              String              @id @default(cuid())
+  conversationId  String              // FK to CRMConversation
+  userId          String              // FK to User
+  agentId         String              // FK to UserAIAgent
+  
+  // Function call info
+  functionName    String              // send_multimedia, save_conversation_data, etc
+  functionArgs    Json                // Arguments passed to function
+  functionResult  Json                // Result returned by function
+  
+  // Execution info
+  success         Boolean             @default(false)
+  executionTime   Float?              // Execution time in milliseconds
+  errorMessage    String?             // Error if failed
+  
+  // Context
+  customerPhone   String
+  triggerMessage  String?             // Message that triggered the function call
+  
+  // Relations
+  conversation    CRMConversation     @relation("ConversationFunctionCalls", fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User                @relation("UserFunctionCalls", fields: [userId], references: [id], onDelete: Cascade)
+  agent           UserAIAgent         @relation("AgentFunctionCalls", fields: [agentId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime            @default(now())
+  
+  @@map("function_call_logs")
+  @@index([conversationId])
+  @@index([userId])
+  @@index([agentId])
+  @@index([functionName])
+  @@index([success])
+  @@index([createdAt])
+}
+
+// MCP Configuration per User (para configurar qué functions están habilitadas)
+model MCPConfiguration {
+  id                String    @id @default(cuid())
+  userId            String    // FK to User
+  
+  // MCP settings
+  mcpEnabled        Boolean   @default(false)
+  provider          String    @default("openai_functions") // openai_functions, anthropic_mcp
+  
+  // Available functions
+  sendMultimedia    Boolean   @default(true)
+  saveData          Boolean   @default(true)
+  analyzeIntent     Boolean   @default(true)
+  scheduleFollowUp  Boolean   @default(true)
+  
+  // Advanced settings
+  maxFunctionCalls  Int       @default(3)    // Max functions per conversation turn
+  functionTimeout   Int       @default(30)   // Timeout in seconds
+  enableLogging     Boolean   @default(true)
+  
+  // Custom configuration
+  customSettings    Json?     // Flexible config
+  
+  // Relations
+  user              User      @relation("UserMCPConfig", fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@map("mcp_configurations")
+  @@index([userId])
+  @@unique([userId])
+}
+
+// ============================================================================
+// 🔄 EXTENSION TO EXISTING MODELS
+// ============================================================================
+// Agregar estas relaciones a los modelos existentes:
+
+/*
+model User {
+  // ... existing fields
+
+  // NEW MCP Relations
+  mediaFiles        UserMediaFile[]       @relation("UserMediaFiles")
+  conversationRecords ConversationRecord[] @relation("UserConversationRecords")  
+  followUpTasks     FollowUpTask[]        @relation("UserFollowUpTasks")
+  functionCallLogs  FunctionCallLog[]     @relation("UserFunctionCalls")
+  mcpConfiguration  MCPConfiguration?     @relation("UserMCPConfig")
+}
+
+model CRMConversation {
+  // ... existing fields
+  
+  // NEW MCP Relations
+  conversationRecords ConversationRecord[] 
+  followUpTasks       FollowUpTask[]       @relation("ConversationFollowUps")
+  functionCallLogs    FunctionCallLog[]    @relation("ConversationFunctionCalls")
+}
+
+model CustomerLead {
+  // ... existing fields
+  
+  // NEW MCP Relations  
+  conversationRecords ConversationRecord[] @relation("LeadConversationRecords")
+  followUpTasks       FollowUpTask[]       @relation("LeadFollowUpTasks")
+}
+
+model UserAIAgent {
+  // ... existing fields
+  
+  // NEW MCP Relations
+  conversationRecords ConversationRecord[] @relation("AgentConversationRecords")
+  followUpTasks       FollowUpTask[]       @relation("AgentFollowUpTasks") 
+  functionCallLogs    FunctionCallLog[]    @relation("AgentFunctionCalls")
+}
+*/

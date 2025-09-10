@@ -3,7 +3,6 @@ const twilio = require('twilio');
 const { PrismaClient } = require('@prisma/client');
 const openaiService = require('../services/openaiService');
 const mcpIntegrationService = require('../services/mcpIntegrationService');
-const buttonExecutorService = require('../services/buttonExecutorService');
 const logger = require('../config/logger');
 
 const router = express.Router();
@@ -37,10 +36,6 @@ router.post('/user-crm',
         MediaUrl0,
         MediaContentType0
       } = req.body;
-      
-      // Detectar si es una respuesta de botón interactivo
-      const { ButtonPayload, ButtonText } = req.body;
-      const isInteractiveResponse = ButtonPayload || ButtonText;
 
       // Log incoming message (privacy-compliant)
       console.log('📨 Incoming User CRM message:');
@@ -48,11 +43,6 @@ router.post('/user-crm',
       console.log('  To:', To);
       console.log('  Message:', Body?.substring(0, 50) + '...');
       console.log('  SID:', MessageSid);
-      console.log('  Interactive:', isInteractiveResponse ? 'Yes' : 'No');
-      if (isInteractiveResponse) {
-        console.log('  Button Payload:', ButtonPayload);
-        console.log('  Button Text:', ButtonText);
-      }
 
       // Extract clean phone numbers
       const fromUser = From?.replace('whatsapp:', '');
@@ -105,69 +95,14 @@ router.post('/user-crm',
         userWhatsApp
       );
 
-      // 6. Procesar respuesta de botón interactivo si aplica
-      let response;
-      if (isInteractiveResponse && ButtonPayload) {
-        console.log('🎯 Processing interactive button response');
-        
-        try {
-          const buttonData = JSON.parse(ButtonPayload);
-          const context = {
-            conversationId: conversation.id,
-            userId: userWhatsApp.userId,
-            customerLeadId: customerLead.id,
-            agentId: agent.id,
-            customerPhone: fromUser,
-            whatsappNumber: toWhatsAppNumber,
-            metadata: conversation.metadata || {}
-          };
-          
-          const buttonResponse = await buttonExecutorService.executeButtonAction(
-            buttonData.buttonId || ButtonText,
-            buttonData,
-            context
-          );
-          
-          if (buttonResponse.success && buttonResponse.response) {
-            response = {
-              success: true,
-              message: buttonResponse.response,
-              mcpEnabled: false,
-              toolsUsed: ['button_executor'],
-              functionCalls: 1,
-              interactiveAction: buttonResponse.action
-            };
-          } else {
-            // Fallback a respuesta normal si el botón falla
-            console.log('⚠️ Button execution failed, falling back to normal response');
-            response = await generateUserAgentResponse(
-              agent,
-              Body || ButtonText || 'Botón presionado',
-              customerLead,
-              conversation,
-              mediaInfo
-            );
-          }
-        } catch (error) {
-          console.error('❌ Error processing interactive button:', error);
-          response = await generateUserAgentResponse(
-            agent,
-            Body || ButtonText || 'Botón presionado',
-            customerLead,
-            conversation,
-            mediaInfo
-          );
-        }
-      } else {
-        // 6. Generar respuesta con personalidad del User (MCP Enhanced)
-        response = await generateUserAgentResponse(
-          agent,
-          Body,
-          customerLead,
-          conversation,
-          mediaInfo
-        );
-      }
+      // 6. Generar respuesta con personalidad del User (MCP Enhanced)
+      const response = await generateUserAgentResponse(
+        agent,
+        Body,
+        customerLead,
+        conversation,
+        mediaInfo
+      );
 
       // 7. Enviar respuesta desde número del User
       console.log('📤 Response to send:', {
@@ -187,8 +122,7 @@ router.post('/user-crm',
       await updateUserCRMMetrics(userWhatsApp.userId, {
         messageReceived: true,
         messageSent: response.success,
-        agentId: agent.id,
-        interactiveMessage: isInteractiveResponse
+        agentId: agent.id
       });
 
       res.status(200).send('OK');

@@ -22,6 +22,7 @@ const campaignsRouter = require('./routes/campaigns');
 const webhooksRouter = require('./routes/webhooks');
 const templatesRouter = require('./routes/templates');
 const authRouter = require('./routes/auth');
+const crmAdminRouter = require('./routes/crmAdmin');
 
 // Import cleanup service
 const cleanupService = require('./jobs/cleanup');
@@ -170,6 +171,7 @@ app.use('/api', rateLimits.general);
 // Protected API routes
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/templates', templatesRouter);
+app.use('/api/crm', crmAdminRouter);
 
 // System management endpoints
 app.get('/api/system/stats', async (req, res) => {
