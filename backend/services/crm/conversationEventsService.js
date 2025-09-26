@@ -11,7 +11,7 @@
  */
 
 const EventEmitter = require('events');
-const logger = require('../config/logger');
+const logger = require('../../config/logger');
 
 class ConversationEventsService extends EventEmitter {
   
