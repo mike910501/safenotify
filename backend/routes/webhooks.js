@@ -1,6 +1,6 @@
 const express = require('express');
 const { rateLimits } = require('../middleware/auth');
-const messageService = require('../services/messageService');
+const messageService = require('../services/integrations/twilioMessagingService');
 const twilioService = require('../config/twilio');
 const logger = require('../config/logger');
 

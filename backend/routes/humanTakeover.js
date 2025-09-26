@@ -5,7 +5,7 @@
 
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const humanTakeoverService = require('../services/humanTakeoverService');
+const humanTakeoverService = require('../services/crm/humanTakeoverService');
 
 const router = express.Router();
 

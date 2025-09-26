@@ -1,8 +1,8 @@
 const express = require('express');
 const twilio = require('twilio');
 const { PrismaClient } = require('@prisma/client');
-const openaiService = require('../services/openaiService');
-const mcpIntegrationService = require('../services/mcpIntegrationService');
+const openaiService = require('../services/integrations/openaiService');
+const mcpIntegrationService = require('../services/mcp/mcpIntegrationService');
 const logger = require('../config/logger');
 
 const router = express.Router();

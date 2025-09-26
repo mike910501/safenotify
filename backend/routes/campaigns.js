@@ -8,7 +8,7 @@ const {
   fileUploadSecurity
 } = require('../middleware/auth');
 const campaignService = require('../services/campaignService');
-const messageService = require('../services/messageService');
+const messageService = require('../services/integrations/twilioMessagingService');
 const logger = require('../config/logger');
 
 const router = express.Router();

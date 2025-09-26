@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const safenotifyDemoService = require('./safenotifyDemoService');
-const openaiService = require('./openaiService');
+const openaiService = require('./integrations/openaiService');
 const dynamicPromptService = require('./dynamicPromptService');
 const fallbackService = require('./fallbackResponseService');
 const twilioService = require('../config/twilio');

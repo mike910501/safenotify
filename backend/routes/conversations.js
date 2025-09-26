@@ -12,7 +12,7 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
-const conversationService = require('../services/conversationManagementService');
+const conversationService = require('../services/crm/conversationManagementService');
 const logger = require('../config/logger');
 
 const prisma = new PrismaClient();

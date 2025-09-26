@@ -8,7 +8,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../middleware/auth');
 const sofiaAIService = require('../services/sofiaAIService');
-const openaiService = require('../services/openaiService');
+const openaiService = require('../services/integrations/openaiService');
 
 const router = express.Router();
 const prisma = new PrismaClient();

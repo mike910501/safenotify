@@ -1,7 +1,7 @@
 // Servicio para ejecutar acciones de botones interactivos
 const { PrismaClient } = require('@prisma/client');
 const twilio = require('twilio');
-const calendarService = require('./calendarService');
+const calendarService = require('./mcp/calendarService');
 const { format, addDays, parse } = require('date-fns');
 const { es } = require('date-fns/locale');
 
