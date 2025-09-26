@@ -4,7 +4,7 @@
 
 const functionCallingService = require('./functionCallingService');
 const openaiService = require('../integrations/openaiService');
-const industryPrompts = require('../templates/industryPrompts');
+const industryPrompts = require('../../templates/industryPrompts');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
