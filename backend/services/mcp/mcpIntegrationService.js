@@ -2,8 +2,8 @@
 // 🚀 MCP Integration Service - Orquesta Function Calling con el sistema existente
 // ============================================================================
 
-const functionCallingService = require('./mcp/functionCallingService');
-const openaiService = require('./integrations/openaiService');
+const functionCallingService = require('./functionCallingService');
+const openaiService = require('../integrations/openaiService');
 const industryPrompts = require('../templates/industryPrompts');
 const { PrismaClient } = require('@prisma/client');
 
