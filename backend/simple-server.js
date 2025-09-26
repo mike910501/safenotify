@@ -11,7 +11,6 @@ const path = require('path');
 console.log('✅ Basic modules loaded');
 
 // Import routes and services with error handling
-let paymentRoutes, adminRoutes, templatesAIRoutes, campaignProgressRoutes;
 let scheduledCampaignsRoutes, blacklistRoutes, analyticsRoutes;
 let agentRoutes, conversationRoutes, crmWebhookRoutes, humanTakeoverRoutes;
 let schedulerService, blacklistService;
@@ -19,7 +18,6 @@ let schedulerService, blacklistService;
 try {
   paymentRoutes = require('./routes/payments');
   adminRoutes = require('./routes/admin');
-  templatesAIRoutes = require('./routes/templatesAI');
   campaignProgressRoutes = require('./routes/campaignProgress');
   scheduledCampaignsRoutes = require('./routes/scheduledCampaigns');
   blacklistRoutes = require('./routes/blacklist');
@@ -2340,7 +2338,6 @@ app.use('/api/admin/sofia', sofiaAdminRoutes);
 app.use('/api/progress', campaignProgressRoutes);
 
 // Mount templates AI routes
-app.use('/api/templates-ai', templatesAIRoutes);
 
 // Mount scheduled campaigns routes
 app.use('/api/scheduled-campaigns', scheduledCampaignsRoutes);
@@ -2369,8 +2366,6 @@ app.use('/api/webhooks', sofiaWebhookRoutes);
 app.use('/api/webhooks', crmWebhookRoutes);
 
 // 🔌 Mount Public API routes (Phase 5.2)
-const publicApiRoutes = require('./routes/publicApi');
-app.use('/api/v1', publicApiRoutes);
 
 // Export user data endpoint
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {
