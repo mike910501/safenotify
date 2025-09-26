@@ -1,6 +1,6 @@
 const OpenAI = require('openai');
 const fallbackService = require('../fallbackResponseService');
-const twilioService = require('../config/twilio');
+const twilioService = require('../../config/twilio');
 const { selectOptimalModel, getModelConfig, trackModelUsage, trackGPTUsageEnhanced } = require('../ai/modelSelector');
 const { SAFENOTIFY_KNOWLEDGE_BASE, getPricingInfo, getCaseStudyForSector } = require('../knowledge/sofiaKnowledgeBase');
 

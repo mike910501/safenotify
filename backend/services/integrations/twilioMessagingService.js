@@ -1,9 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
-const twilioService = require('../config/twilio');
+const db = require('../../config/database');
+const twilioService = require('../../config/twilio');
 const campaignService = require('../campaignService');
-const logger = require('../config/logger');
-const prisma = require('../db');
+const logger = require('../../config/logger');
+const prisma = require('../../db');
 
 class MessageService {
   async sendCampaignMessages(campaignId) {
